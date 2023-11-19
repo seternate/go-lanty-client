@@ -1,0 +1,19 @@
+# ignore everything
+*
+
+# whitelist
+!.gitignore
+!go.mod
+!go.sum
+
+!*.md
+!*.go
+!*.yaml
+
+!cmd/
+!pkg/
+!pkg/settings/
+!pkg/ui/
+!pkg/ui/gamebrowser/
+!pkg/ui/settingbrowser/
+!settings/
