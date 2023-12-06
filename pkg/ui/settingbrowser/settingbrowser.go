@@ -7,16 +7,16 @@ import (
 
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
-	"github.com/seternate/go-lanty/pkg/settings"
+	"github.com/seternate/go-lanty-client/pkg/setting"
 )
 
 type Settingbrowser struct {
 	*widget.Form
 
-	settings *settings.Settings
+	settings *setting.Settings
 }
 
-func NewSettingBrowser(settings *settings.Settings) (*Settingbrowser, error) {
+func NewSettingBrowser(settings *setting.Settings) (*Settingbrowser, error) {
 	settingbrowser := &Settingbrowser{settings: settings}
 
 	serverurlbinding := binding.BindString(&settings.ServerURL)

@@ -8,12 +8,12 @@
 
 !*.md
 !*.go
-!*.yaml
+!settings.yaml
 
 !cmd/
 !pkg/
-!pkg/settings/
+!pkg/controller/
+!pkg/setting/
 !pkg/ui/
 !pkg/ui/gamebrowser/
 !pkg/ui/settingbrowser/
-!settings/

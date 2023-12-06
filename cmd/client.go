@@ -1,34 +1,69 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"net/url"
 	"time"
 
-	lanty "github.com/seternate/go-lanty/pkg"
-	"github.com/seternate/go-lanty/pkg/settings"
-	lantyUI "github.com/seternate/go-lanty/pkg/ui"
-	lantyapi "github.com/seternate/lanty-api-golang/pkg/api"
-	"github.com/seternate/lanty-api-golang/pkg/download"
-	"github.com/seternate/lanty-api-golang/pkg/game"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/seternate/go-lanty-client/pkg/controller"
+	"github.com/seternate/go-lanty-client/pkg/setting"
+	"github.com/seternate/go-lanty-client/pkg/ui"
+	"github.com/seternate/go-lanty/pkg/api"
 )
 
 func main() {
-	settings, err := settings.LoadSettings("settings/lanty.yaml")
+	parseFlags()
+
+	settings, err := setting.LoadSettings()
 	if err != nil {
-		fmt.Printf("Error loading the settings: %s", err)
+		log.Fatal().Err(err).Msg("failed to load settings")
 	}
+	log.Debug().Interface("settings", settings).Msg("loaded settings successfully")
 
-	timeout, _ := time.ParseDuration("0s")
-	baseURL, _ := url.Parse(settings.ServerURL)
-	client, _ := lantyapi.NewClient(baseURL, "", "", timeout)
+	timeout, err := time.ParseDuration("0s")
+	if err != nil {
+		log.Fatal().Err(err).Send()
+	}
+	url, err := url.Parse(settings.ServerURL)
+	if err != nil {
+		log.Fatal().Err(err).Str("url", settings.ServerURL).Msg("failed to parse server URL")
+	}
+	client := api.NewClient(url, timeout)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create API client")
+	}
+	log.Debug().Msg("created API client")
 
-	games, _ := client.Game.GetList()
+	controller := controller.NewController(settings, client).
+		WithGameController().
+		WithDownloadController()
 
-	downloader := &download.Downloader{Download: map[game.Game]*download.Download{}}
+	ui := ui.NewUI(controller)
+	ui.ShowAndRun()
+}
 
-	lanty, _ := lanty.NewLanty(settings, client, downloader, &games)
+func parseFlags() {
+	logLevel := flag.String("loglevel", "info", "Sets the log level of the application")
+	flag.Parse()
 
-	lantyui := lantyUI.NewLantyUI(lanty)
-	lantyui.ShowAndRun()
+	switch *logLevel {
+	case "disable":
+		zerolog.SetGlobalLevel(zerolog.Disabled)
+	case "trace":
+		zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	case "warning":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	case "panic":
+		zerolog.SetGlobalLevel(zerolog.PanicLevel)
+	case "fatal":
+		zerolog.SetGlobalLevel(zerolog.FatalLevel)
+	}
 }
