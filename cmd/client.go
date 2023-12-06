@@ -1,34 +1,75 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
-	"net/url"
-	"time"
+	"os"
+	"os/signal"
+	"syscall"
 
-	lanty "github.com/seternate/go-lanty/pkg"
-	"github.com/seternate/go-lanty/pkg/settings"
-	lantyUI "github.com/seternate/go-lanty/pkg/ui"
-	lantyapi "github.com/seternate/lanty-api-golang/pkg/api"
-	"github.com/seternate/lanty-api-golang/pkg/download"
-	"github.com/seternate/lanty-api-golang/pkg/game"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"github.com/rs/zerolog/log"
+	"github.com/seternate/go-lanty-client/pkg/controller"
+	"github.com/seternate/go-lanty-client/pkg/setting"
+	"github.com/seternate/go-lanty-client/pkg/widget"
+	"github.com/seternate/go-lanty/pkg/logging"
+	"github.com/seternate/go-lanty/pkg/network"
+	"golang.design/x/clipboard"
 )
 
 func main() {
-	settings, err := settings.LoadSettings("settings/lanty.yaml")
+	signalCtx, cancelSignalCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancelSignalCtx()
+
+	logconfig := logging.Config{ConsoleLoggingEnabled: true}
+	parseFlags(&logconfig)
+	log.Logger = logging.Configure(logconfig)
+
+	err := clipboard.Init()
 	if err != nil {
-		fmt.Printf("Error loading the settings: %s", err)
+		log.Fatal().Err(err).Msg("failed to init clipboard package")
 	}
 
-	timeout, _ := time.ParseDuration("0s")
-	baseURL, _ := url.Parse(settings.ServerURL)
-	client, _ := lantyapi.NewClient(baseURL, "", "", timeout)
+	controller := controller.NewController(signalCtx).
+		WithSettingsController().
+		WithStatusController().
+		WithGameController().
+		WithDownloadController().
+		WithUserController()
 
-	games, _ := client.Game.GetList()
+	app := app.New()
+	window := app.NewWindow(getApplicationTitle())
+	lanty := widget.NewLanty(controller)
+	window.SetContent(lanty)
+	window.SetPadded(false)
+	window.Resize(fyne.NewSize(1024, 600))
+	window.SetIcon(resourceIconPng)
 
-	downloader := &download.Downloader{Download: map[game.Game]*download.Download{}}
+	window.ShowAndRun()
 
-	lanty, _ := lanty.NewLanty(settings, client, downloader, &games)
+	log.Debug().Msg("quit application")
+	controller.Quit()
+	controller.WaitGroup().Wait()
+	log.Debug().Msg("application stopped")
+}
 
-	lantyui := lantyUI.NewLantyUI(lanty)
-	lantyui.ShowAndRun()
+func getApplicationTitle() string {
+	ip, err := network.GetOutboundIP()
+	if err != nil {
+		return setting.APPLICATION_NAME
+	}
+	return fmt.Sprintf("%s - %s", setting.APPLICATION_NAME, ip.String())
+}
+
+func parseFlags(config *logging.Config) {
+	flag.StringVar(&config.LogLevel, "loglevel", "info", "Sets the log level")
+	flag.BoolVar(&config.FileLoggingEnabled, "logenablefile", false, "Enables logging to file")
+	flag.StringVar(&config.Filename, "logfile", "lanty.log", "Sets the log filename")
+	flag.StringVar(&config.Directory, "logdir", "log", "Sets the log directory")
+	flag.IntVar(&config.MaxBackups, "logbackups", 0, "Sets the number of old logs to remain")
+	flag.IntVar(&config.MaxSize, "logfilesize", 10, "Sets the size of the logs before rotating to new file")
+	flag.IntVar(&config.MaxAge, "logage", 0, "Sets the maximum number of days to retain old logs")
+	flag.Parse()
 }

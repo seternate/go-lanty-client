@@ -3,17 +3,23 @@
 
 # whitelist
 !.gitignore
+!.gitattributes
 !go.mod
 !go.sum
 
 !*.md
 !*.go
-!*.yaml
+!build.bat
+!settings.yaml
 
 !cmd/
 !pkg/
-!pkg/settings/
-!pkg/ui/
-!pkg/ui/gamebrowser/
-!pkg/ui/settingbrowser/
-!settings/
+!pkg/controller/
+!pkg/layout/
+!pkg/setting/
+!pkg/theme/
+!pkg/widget/
+!resources/
+!resources/icon.png
+!winres/
+!winres/winres.json
