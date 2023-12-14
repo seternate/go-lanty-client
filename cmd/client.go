@@ -2,68 +2,61 @@ package main
 
 import (
 	"flag"
-	"net/url"
-	"time"
+	"fmt"
 
-	"github.com/rs/zerolog"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
 	"github.com/rs/zerolog/log"
 	"github.com/seternate/go-lanty-client/pkg/controller"
 	"github.com/seternate/go-lanty-client/pkg/setting"
-	"github.com/seternate/go-lanty-client/pkg/ui"
-	"github.com/seternate/go-lanty/pkg/api"
+	"github.com/seternate/go-lanty-client/pkg/widget"
+	"github.com/seternate/go-lanty/pkg/logging"
+	"github.com/seternate/go-lanty/pkg/network"
+	"golang.design/x/clipboard"
 )
 
+//TODO: implement context to cancel all goroutines if application exits
+//TODO: evaluate defer because it has some delay --> file handle not closed right away
+
 func main() {
-	parseFlags()
+	logconfig := logging.Config{ConsoleLoggingEnabled: true}
+	parseFlags(&logconfig)
+	log.Logger = logging.Configure(logconfig)
 
-	settings, err := setting.LoadSettings()
+	err := clipboard.Init()
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load settings")
+		log.Fatal().Err(err).Msg("failed to init clipboard package")
 	}
-	log.Debug().Interface("settings", settings).Msg("loaded settings successfully")
 
-	timeout, err := time.ParseDuration("0s")
-	if err != nil {
-		log.Fatal().Err(err).Send()
-	}
-	url, err := url.Parse(settings.ServerURL)
-	if err != nil {
-		log.Fatal().Err(err).Str("url", settings.ServerURL).Msg("failed to parse server URL")
-	}
-	client := api.NewClient(url, timeout)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to create API client")
-	}
-	log.Debug().Msg("created API client")
-
-	controller := controller.NewController(settings, client).
+	controller := controller.NewController().
 		WithGameController().
-		WithDownloadController()
+		WithDownloadController().
+		WithUserController()
 
-	ui := ui.NewUI(controller)
-	ui.ShowAndRun()
+	app := app.New()
+	window := app.NewWindow(getApplicationTitle())
+	lanty := widget.NewLanty(controller)
+	window.SetContent(lanty)
+	window.SetPadded(false)
+	window.Resize(fyne.NewSize(0, window.Canvas().Size().Width/2.5))
+	window.ShowAndRun()
 }
 
-func parseFlags() {
-	logLevel := flag.String("loglevel", "info", "Sets the log level of the application")
-	flag.Parse()
-
-	switch *logLevel {
-	case "disable":
-		zerolog.SetGlobalLevel(zerolog.Disabled)
-	case "trace":
-		zerolog.SetGlobalLevel(zerolog.TraceLevel)
-	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	case "info":
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	case "warning":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "error":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-	case "panic":
-		zerolog.SetGlobalLevel(zerolog.PanicLevel)
-	case "fatal":
-		zerolog.SetGlobalLevel(zerolog.FatalLevel)
+func getApplicationTitle() string {
+	ip, err := network.GetOutboundIP()
+	if err != nil {
+		return setting.APPLICATION_NAME
 	}
+	return fmt.Sprintf("%s - %s", setting.APPLICATION_NAME, ip.String())
+}
+
+func parseFlags(config *logging.Config) {
+	flag.StringVar(&config.LogLevel, "loglevel", "info", "Sets the log level")
+	flag.BoolVar(&config.FileLoggingEnabled, "logenablefile", false, "Enables logging to file")
+	flag.StringVar(&config.Filename, "logfile", "lanty.log", "Sets the log filename")
+	flag.StringVar(&config.Directory, "logdir", "log", "Sets the log directory")
+	flag.IntVar(&config.MaxBackups, "logbackups", 0, "Sets the number of old logs to remain")
+	flag.IntVar(&config.MaxSize, "logfilesize", 10, "Sets the size of the logs before rotating to new file")
+	flag.IntVar(&config.MaxAge, "logage", 0, "Sets the maximum number of days to retain old logs")
+	flag.Parse()
 }

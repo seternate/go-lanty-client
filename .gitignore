@@ -13,7 +13,7 @@
 !cmd/
 !pkg/
 !pkg/controller/
+!pkg/layout/
 !pkg/setting/
-!pkg/ui/
-!pkg/ui/gamebrowser/
-!pkg/ui/settingbrowser/
+!pkg/theme/
+!pkg/widget/

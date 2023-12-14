@@ -1,137 +1,113 @@
 package controller
 
 import (
-	"os"
-	"path"
+	"errors"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/seternate/go-lanty-client/pkg/setting"
-	"github.com/seternate/go-lanty/pkg/api"
-	"github.com/seternate/go-lanty/pkg/filesystem"
 	"github.com/seternate/go-lanty/pkg/game"
-	"github.com/seternate/go-lanty/pkg/network"
 	"github.com/seternate/go-lanty/pkg/util"
 )
 
 type DownloadController struct {
 	parent     *Controller
-	downloads  map[game.Game]*network.Download
-	unzips     map[game.Game]*filesystem.Unzip
-	queue      []game.Game
-	subscriber map[game.Game][]Subscription
-}
-
-type Subscription struct {
-	Game             game.Game
-	Download         chan *network.Download
-	Unzip            chan *filesystem.Unzip
-	DownloadProgress chan float64
-	UnzipProgress    chan float64
+	downloads  []*Download
+	subscriber []chan struct{}
+	mutex      sync.RWMutex
 }
 
 func NewDownloadController(parent *Controller) (controller *DownloadController) {
 	controller = &DownloadController{
 		parent:     parent,
-		downloads:  make(map[game.Game]*network.Download),
-		unzips:     make(map[game.Game]*filesystem.Unzip),
-		queue:      make([]game.Game, 0),
-		subscriber: make(map[game.Game][]Subscription),
+		downloads:  make([]*Download, 0),
+		subscriber: make([]chan struct{}, 0),
 	}
-
 	go controller.run()
-
 	return
 }
 
-func (controller *DownloadController) DownloadGame(game game.Game) {
-	if slices.Contains(controller.queue, game) {
-		log.Trace().Str("slug", game.Slug).Msg("game already in download queue")
+func (controller *DownloadController) Download(game game.Game) {
+	if controller.isDownloading(game) {
+		log.Debug().Str("slug", game.Slug).Msg("game already downloading")
 		return
 	}
-	controller.queue = append(controller.queue, game)
-	log.Trace().Str("slug", game.Slug).Msg("added game to download queue")
+	controller.mutex.Lock()
+	controller.downloads = append(controller.downloads, NewDownload(controller.parent, game))
+	controller.mutex.Unlock()
+	controller.notifySubcriber()
+	log.Debug().Str("slug", game.Slug).Msg("added game to download queue")
 }
 
-func (controller DownloadController) Subscribe(subscriber Subscription) {
-	controller.subscriber[subscriber.Game] = append(controller.subscriber[subscriber.Game], subscriber)
+func (controller *DownloadController) isDownloading(game game.Game) bool {
+	download, err := controller.GetLatest(game)
+	return err == nil && !download.IsComplete()
+}
+
+func (controller *DownloadController) GetLatest(game game.Game) (*Download, error) {
+	controller.mutex.Lock()
+	downloads := controller.downloads
+	controller.mutex.Unlock()
+	for i := len(downloads) - 1; i >= 0; i-- {
+		download := downloads[i]
+		if download.Game() == game {
+			return download, nil
+		}
+	}
+	return nil, errors.New("game is not being downloaded")
+}
+
+func (controller *DownloadController) GetLastQueued() *Download {
+	defer controller.mutex.RUnlock()
+	controller.mutex.RLock()
+	return controller.downloads[len(controller.downloads)-1]
+}
+
+func (controller *DownloadController) Subscribe(subscriber chan struct{}) {
+	defer controller.mutex.Unlock()
+	controller.mutex.Lock()
+	log.Trace().Msg("new subscriber to downloadcontroller")
+	controller.subscriber = append(controller.subscriber, subscriber)
+}
+
+func (controller *DownloadController) Unsubscribe(subscriber chan struct{}) {
+	defer controller.mutex.Unlock()
+	controller.mutex.Lock()
+	index := slices.Index(controller.subscriber, subscriber)
+	slices.Delete(controller.subscriber, index, index+1)
+}
+
+func (controller *DownloadController) notifySubcriber() {
+	defer controller.mutex.RUnlock()
+	controller.mutex.RLock()
+	log.Trace().Msg("notify subscriber of downloadcontroller")
+	for _, subscriber := range controller.subscriber {
+		util.ChannelWriteNonBlocking(subscriber, struct{}{})
+	}
 }
 
 func (controller *DownloadController) run() {
 	for {
-		controller.startDownloadsFromQueue()
-		controller.extractFinishedDownloads()
-		controller.deleteFinishedDownloads()
+		log.Trace().Msg("downloadcontroller update loop")
+		controller.startQueuedDownloads()
 		time.Sleep(150 * time.Millisecond)
 	}
 }
 
-func (controller *DownloadController) startDownloadsFromQueue() {
-	for index, game := range controller.queue {
-		if controller.isDownloading(game) {
-			controller.queue = slices.Delete(controller.queue, 0, 1)
-			log.Trace().Str("slug", game.Slug).Msg("game already downloading - removed from queue")
-			continue
-		}
-
-		download, err := controller.client().Game.Download(game, controller.settings().GameDirectory)
-		if err != nil {
-			return
-		}
-
-		controller.queue = slices.Delete(controller.queue, index, index+1)
-		controller.downloads[game] = download
-		log.Trace().Str("slug", game.Slug).Msg("download of game started")
-
-		for _, subscriber := range controller.subscriber[game] {
-			util.ChannelWriteNonBlocking(subscriber.Download, download)
-			download.Subscribe(subscriber.DownloadProgress)
-		}
-	}
-}
-
-func (controller *DownloadController) extractFinishedDownloads() {
-	for game, download := range controller.downloads {
-		if download.IsComplete() {
-			log.Trace().Err(download.Err).Str("slug", game.Slug).Msg("game download error status")
-			unzip := filesystem.NewUnzip(
-				path.Join(controller.settings().GameDirectory, download.Filename),
-				path.Join(controller.settings().GameDirectory, game.Slug),
-			)
-			unzip.StartUnzip()
-			delete(controller.downloads, game)
-			controller.unzips[game] = unzip
-			log.Trace().Str("slug", game.Slug).Msg("start unzip of game")
-			for _, subscriber := range controller.subscriber[game] {
-				util.ChannelWriteNonBlocking(subscriber.Unzip, unzip)
-				unzip.Subscribe(subscriber.UnzipProgress)
+func (controller *DownloadController) startQueuedDownloads() {
+	controller.mutex.Lock()
+	downloads := controller.downloads
+	controller.mutex.Unlock()
+	for _, download := range downloads {
+		if !download.IsStarted() {
+			err := download.Start()
+			if err != nil {
+				log.Error().Err(err).Str("slug", download.Game().Slug).Msg("failed to start download of game")
+				return
 			}
+			controller.notifySubcriber()
+			log.Debug().Str("slug", download.Game().Slug).Msg("started game download")
 		}
 	}
-}
-
-func (controller *DownloadController) deleteFinishedDownloads() {
-	for game, unzip := range controller.unzips {
-		if unzip.IsComplete() {
-			log.Trace().Err(unzip.Err).Str("slug", game.Slug).Msg("game unzip error status")
-			os.Remove(unzip.Filename)
-			delete(controller.unzips, game)
-			log.Trace().Str("slug", game.Slug).Msg("removed game zip file")
-		}
-	}
-}
-
-func (controller *DownloadController) isDownloading(game game.Game) bool {
-	_, foundDownload := controller.downloads[game]
-	_, foundUnzip := controller.unzips[game]
-	return foundDownload || foundUnzip
-}
-
-func (controller *DownloadController) client() *api.Client {
-	return controller.parent.client
-}
-
-func (controller *DownloadController) settings() *setting.Settings {
-	return controller.parent.settings
 }

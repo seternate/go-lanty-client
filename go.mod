@@ -5,7 +5,8 @@ go 1.21.4
 require (
 	fyne.io/fyne/v2 v2.3.5
 	github.com/rs/zerolog v1.31.0
-	github.com/seternate/go-lanty v0.0.0-20231206144644-fa7d39d3800e
+	github.com/seternate/go-lanty v0.0.0-20231214160358-af10821c4042
+	golang.design/x/clipboard v0.7.0
 )
 
 require (
@@ -32,11 +33,13 @@ require (
 	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/tevino/abool v1.2.0 // indirect
 	github.com/yuin/goldmark v1.4.13 // indirect
-	golang.org/x/image v0.3.0 // indirect
-	golang.org/x/mobile v0.0.0-20211207041440-4e6c2922fdee // indirect
-	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
+	golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6 // indirect
+	golang.org/x/image v0.6.0 // indirect
+	golang.org/x/mobile v0.0.0-20230301163155-e0f57694e12c // indirect
+	golang.org/x/net v0.6.0 // indirect
 	golang.org/x/sys v0.14.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/js/dom v0.0.0-20210725211120-f030747120f2 // indirect
 	rsc.io/nop v1.0.0 // indirect
