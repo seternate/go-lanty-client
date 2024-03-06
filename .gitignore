@@ -12,6 +12,9 @@
 !build.bat
 !settings.yaml
 
+!.github/
+!.github/ISSUE_TEMPLATE
+!.github/ISSUE_TEMPLATE/*.yml
 !cmd/
 !pkg/
 !pkg/controller/
