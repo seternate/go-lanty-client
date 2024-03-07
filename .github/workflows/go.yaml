@@ -59,9 +59,11 @@ jobs:
         files: ./lanty
         dest: lanty.zip
     - name: Create Release
+      if: 
       id: create_release
       uses: softprops/action-gh-release@v1
       with:
         files: |
           lanty.zip
+        generate_release_notes: true
     needs: build-windows
