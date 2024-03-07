@@ -13,16 +13,14 @@
 !settings.yaml
 
 !.github/
-!.github/ISSUE_TEMPLATE
-!.github/ISSUE_TEMPLATE/*.yml
+!.github/**/
+!.github/**/*.yaml
 !cmd/
+!cmd/icon.png
+!cmd/winres.json
 !pkg/
 !pkg/controller/
 !pkg/layout/
 !pkg/setting/
 !pkg/theme/
 !pkg/widget/
-!resources/
-!resources/icon.png
-!winres/
-!winres/winres.json
