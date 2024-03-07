@@ -18,6 +18,7 @@
 !cmd/
 !cmd/icon.png
 !cmd/winres.json
+!cmd/rsrc_*.syso
 !pkg/
 !pkg/controller/
 !pkg/layout/

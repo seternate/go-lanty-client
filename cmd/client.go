@@ -20,7 +20,7 @@ import (
 )
 
 //go:generate go run github.com/tc-hib/go-winres@v0.3.1 make --in ./winres.json --arch amd64
-//go:generate fyne bundle -o ./bundled.go ./icon.png
+//go:generate go run fyne.io/fyne/v2/cmd/fyne@v2.4.3 bundle -o ./bundled.go ./icon.png
 
 func main() {
 	signalCtx, cancelSignalCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

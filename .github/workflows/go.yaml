@@ -1,0 +1,67 @@
+name: Go
+
+on:
+  push:
+    branches: 
+    - main
+    tags:
+    - v*
+  pull_request:
+    branches: 
+    - "main"
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        lfs: "true"
+    - name: Setup Golang
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    - name: Check for Go Generate diff
+      run: |
+        go generate ./...
+        if [ $(git status --porcelain | wc -l) -eq "0" ]; then
+          echo "🟢 All files up-to-date."
+        else
+          echo "🔴 'go generate' produced a diff."
+          exit 1
+        fi
+    - name: Setup build environment
+      run: sudo apt-get update && sudo apt-get install -y --no-install-recommends --no-install-suggests libgl1-mesa-dev xorg-dev gcc-mingw-w64-x86-64
+    - name: Build
+      run: GOOS=windows CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc-win32 go build -o ./build/lanty.exe -v -ldflags -H=windowsgui ./cmd
+    - name: Package
+      run: cp ./settings.yaml ./build
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: lanty
+        path: ./build
+        if-no-files-found: error
+        retention-days: 1
+        overwrite: "true"
+  release:
+    if: github.ref_type == 'tag'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download artifact
+      id: download_artifact
+      uses: actions/download-artifact@v4
+    - uses: vimtor/action-zip@v1.2
+      with:
+        files: ./lanty
+        dest: lanty.zip
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          lanty.zip
+    needs: build-windows
