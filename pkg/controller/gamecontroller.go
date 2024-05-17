@@ -56,16 +56,21 @@ func (controller *GameController) Err() error {
 }
 
 func (controller *GameController) runExecutable(executable string, args []string) (cmd *exec.Cmd, err error) {
-	path, err := filesystem.SearchFileByName(controller.parent.settings.GameDirectory, executable, 2)
+	paths, err := filesystem.SearchFilesBreadthFirst(controller.parent.settings.GameDirectory, executable, 3, -1)
 	if err != nil {
+		log.Error().Err(err).Msg("error finding game executable path")
 		return
 	}
-	workingDir := filepath.Dir(path)
-	if filepath.Ext(path) == ".bat" {
-		args = append([]string{"/c", "start", "cmd.exe", "/k", path}, args...)
-		path = "cmd.exe"
+	if len(paths) > 1 {
+		log.Warn().Strs("paths", paths).Str("used-path", paths[0]).Msg("found multiple game executables to run")
 	}
-	cmd = exec.Command(path, args...)
+
+	workingDir := filepath.Dir(paths[0])
+	if filepath.Ext(paths[0]) == ".bat" {
+		args = append([]string{"/c", "start", "cmd.exe", "/k", paths[0]}, args...)
+		paths[0] = "cmd.exe"
+	}
+	cmd = exec.Command(paths[0], args...)
 	cmd.Dir = workingDir
 	cmd.Start()
 	return
@@ -86,13 +91,16 @@ func (controller *GameController) StartGame(game game.Game) {
 }
 
 func (controller *GameController) OpenGameInExplorer(game game.Game) {
-	path, err := filesystem.SearchFileByName(controller.parent.settings.GameDirectory, game.Client.Executable, 2)
+	paths, err := filesystem.SearchFilesBreadthFirst(controller.parent.settings.GameDirectory, game.Client.Executable, 3, -1)
 	if err != nil {
+		log.Error().Err(err).Msg("error finding game executable path")
 		return
 	}
-	cmd := exec.Command("explorer", "/select,", path)
-	cmd.Start()
-	log.Debug().Str("slug", game.Slug).Str("cmd", cmd.String()).Msg("open game in explorer")
+	for _, path := range paths {
+		cmd := exec.Command("explorer", "/select,", path)
+		cmd.Start()
+		log.Debug().Str("slug", game.Slug).Str("cmd", cmd.String()).Str("path", path).Msg("open game in explorer")
+	}
 }
 
 func (controller *GameController) JoinServer(game game.Game, user user.User) {
