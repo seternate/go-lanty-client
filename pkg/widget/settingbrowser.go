@@ -67,7 +67,7 @@ func NewSettingsBrowser(controller *controller.Controller) (settingsbrowser *Set
 	}
 	settingsbrowser.form.OnCancel = func() {
 		settingsbrowser.ResetData()
-		controller.Status.Info("Settings reseted", 3*time.Second)
+		controller.Status.Info("Settings resetted", 3*time.Second)
 	}
 
 	settingsbrowser.serverurl = serverurlbind

@@ -34,6 +34,7 @@ func NewForm() (form *Form) {
 			form.OnCancel()
 		}
 	}
+	form.submit.Importance = widget.HighImportance
 	return
 }
 
@@ -91,10 +92,10 @@ func (renderer *formRenderer) Layout(size fyne.Size) {
 		lastposition = item.Position().Y + item.Size().Height
 	}
 	buttonSize := fyne.NewSize(fyne.Max(renderer.widget.cancel.MinSize().Width, renderer.widget.submit.MinSize().Width), renderer.widget.submit.MinSize().Height)
-	renderer.widget.cancel.Resize(buttonSize)
-	renderer.widget.cancel.Move(fyne.NewPos(size.Width-theme.InnerPadding()-buttonSize.Width, size.Height-theme.InnerPadding()-buttonSize.Height))
 	renderer.widget.submit.Resize(buttonSize)
-	renderer.widget.submit.Move(fyne.NewPos(renderer.widget.cancel.Position().X-theme.InnerPadding()-buttonSize.Width, renderer.widget.cancel.Position().Y))
+	renderer.widget.submit.Move(fyne.NewPos(size.Width-theme.InnerPadding()-buttonSize.Width, size.Height-theme.InnerPadding()-buttonSize.Height))
+	renderer.widget.cancel.Resize(buttonSize)
+	renderer.widget.cancel.Move(fyne.NewPos(renderer.widget.submit.Position().X-theme.InnerPadding()-buttonSize.Width, renderer.widget.submit.Position().Y))
 }
 
 func (renderer *formRenderer) MinSize() fyne.Size {
