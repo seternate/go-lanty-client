@@ -258,6 +258,8 @@ github.com/seternate/go-lanty v0.1.0-beta h1:gpclCPCz5H2hmNeyHrLxVe1sP3d/5SzKSEz
 github.com/seternate/go-lanty v0.1.0-beta/go.mod h1:1mxIN82SScfhtjQYzjUSFSz3ArrgOIsHBSjHl54BaMc=
 github.com/seternate/go-lanty v0.1.0-beta.0.20240505140903-1ecd9b6d4b5d h1:Fy0j73ur2t4zuSomJBEDJjr71PxFC4SF0sbM/YN5t3k=
 github.com/seternate/go-lanty v0.1.0-beta.0.20240505140903-1ecd9b6d4b5d/go.mod h1:1mxIN82SScfhtjQYzjUSFSz3ArrgOIsHBSjHl54BaMc=
+github.com/seternate/go-lanty v0.1.0-beta.0.20240517150350-28bf44a66830 h1:ba5WOpu0ckeJivCbMrRHRg09vLA8pPSqI9WxbTzGGbU=
+github.com/seternate/go-lanty v0.1.0-beta.0.20240517150350-28bf44a66830/go.mod h1:1mxIN82SScfhtjQYzjUSFSz3ArrgOIsHBSjHl54BaMc=
 github.com/shurcooL/go v0.0.0-20200502201357-93f07166e636/go.mod h1:TDJrrUr11Vxrven61rcy3hJMUqaf/CLWYhHNPmT14Lk=
 github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749/go.mod h1:ZY1cvUeJuFPAdZ/B6v7RHavJWZn2YPVFQ1OSXhCGOkg=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=

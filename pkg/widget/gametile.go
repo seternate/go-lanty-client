@@ -175,7 +175,7 @@ func (widget *GameTile) updatePlayAndOpenButtonStatus() {
 	if runtime.GOOS != "windows" {
 		return
 	}
-	paths, err := filesystem.SearchFileByName(widget.controller.Settings.Settings().GameDirectory, widget.game.Client.Executable, 2)
+	paths, err := filesystem.SearchFilesBreadthFirst(widget.controller.Settings.Settings().GameDirectory, widget.game.Client.Executable, 3, 1)
 	if (err != nil || len(paths) == 0) && !widget.buttons["play"].Disabled() {
 		widget.buttons["play"].Disable()
 		widget.buttons["open"].Disable()
