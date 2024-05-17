@@ -26,7 +26,12 @@ func main() {
 	signalCtx, cancelSignalCtx := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancelSignalCtx()
 
-	logconfig := logging.Config{ConsoleLoggingEnabled: true}
+	logconfig := logging.Config{
+		ConsoleLoggingEnabled: true,
+		FileLoggingEnabled:    true,
+		Filename:              "lanty.log",
+		Directory:             "log",
+	}
 	parseFlags(&logconfig)
 	log.Logger = logging.Configure(logconfig)
 
@@ -68,9 +73,6 @@ func getApplicationTitle() string {
 
 func parseFlags(config *logging.Config) {
 	flag.StringVar(&config.LogLevel, "loglevel", "info", "Sets the log level")
-	flag.BoolVar(&config.FileLoggingEnabled, "logenablefile", false, "Enables logging to file")
-	flag.StringVar(&config.Filename, "logfile", "lanty.log", "Sets the log filename")
-	flag.StringVar(&config.Directory, "logdir", "log", "Sets the log directory")
 	flag.IntVar(&config.MaxBackups, "logbackups", 0, "Sets the number of old logs to remain")
 	flag.IntVar(&config.MaxSize, "logfilesize", 10, "Sets the size of the logs before rotating to new file")
 	flag.IntVar(&config.MaxAge, "logage", 0, "Sets the maximum number of days to retain old logs")
