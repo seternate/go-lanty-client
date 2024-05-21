@@ -37,11 +37,16 @@ func NewController(ctx context.Context) *Controller {
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
-	url, err := url.Parse(settings.ServerURL)
+
+	u, err := url.Parse(settings.ServerURL)
+	if len(u.Host) == 0 {
+		u, err = url.Parse("http://" + settings.ServerURL)
+	}
 	if err != nil {
 		log.Fatal().Err(err).Str("url", settings.ServerURL).Msg("failed to parse server URL")
 	}
-	client := api.NewClient(url, timeout)
+
+	client := api.NewClient(u, timeout)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create API client")
 	}
