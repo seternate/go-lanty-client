@@ -49,7 +49,7 @@ func main() {
 
 	app := app.New()
 	window := app.NewWindow(getApplicationTitle())
-	lanty := widget.NewLanty(controller)
+	lanty := widget.NewLanty(controller, window)
 	window.SetContent(lanty)
 	window.SetPadded(false)
 	window.Resize(fyne.NewSize(1024, 600))

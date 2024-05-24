@@ -33,12 +33,12 @@ type Lanty struct {
 	statusupdate chan struct{}
 }
 
-func NewLanty(controller *controller.Controller) *Lanty {
+func NewLanty(controller *controller.Controller, window fyne.Window) *Lanty {
 	gamebrowser := NewGameBrowser(controller)
 	startserver := NewStartServer(controller)
 	downloadbrowser := NewDownloadBrowser(controller)
 	userbrowser := NewUserBrowser(controller)
-	settingsbrowser := NewSettingsBrowser(controller)
+	settingsbrowser := NewSettingsBrowser(controller, window)
 
 	lanty := &Lanty{
 		controller:      controller,
