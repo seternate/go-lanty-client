@@ -2,6 +2,7 @@ package widget
 
 import (
 	"errors"
+	"os"
 	"regexp"
 	"time"
 
@@ -22,9 +23,9 @@ type SettingsBrowser struct {
 	window     fyne.Window
 	form       *Form
 
-	serverurl     *widget.Entry
-	gamedirectory *widget.Entry
-	username      *widget.Entry
+	serverurl     *Entry
+	gamedirectory *Entry
+	username      *Entry
 
 	settingschanged chan struct{}
 }
@@ -34,28 +35,74 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 		controller:      controller,
 		window:          window,
 		form:            NewForm(),
-		serverurl:       widget.NewEntry(),
-		gamedirectory:   widget.NewEntry(),
-		username:        widget.NewEntry(),
+		serverurl:       NewEntry(),
+		gamedirectory:   NewEntry(),
+		username:        NewEntry(),
 		settingschanged: make(chan struct{}, 50),
 	}
 	settingsbrowser.ExtendBaseWidget(settingsbrowser)
 
 	settingsbrowser.serverurl.SetText(controller.Settings.Settings().ServerURL)
+	settingsbrowser.serverurl.OnFocusChanged = func(b bool) {
+		if !b && settingsbrowser.serverurl.Validate() == nil {
+			controller.Settings.SetServerURL(settingsbrowser.serverurl.Text)
+			controller.Settings.Save()
+		}
+	}
+	settingsbrowser.serverurl.OnSubmitted = func(s string) {
+		if settingsbrowser.serverurl.Validate() == nil {
+			controller.Settings.SetServerURL(settingsbrowser.serverurl.Text)
+			controller.Settings.Save()
+		}
+	}
 	settingsbrowser.form.AppendItem(NewFormItem("Server URL", settingsbrowser.serverurl))
 
 	settingsbrowser.gamedirectory.SetText(controller.Settings.Settings().GameDirectory)
+	settingsbrowser.gamedirectory.Validator = func(path string) error {
+		info, err := os.Stat(path)
+		if errors.Is(err, os.ErrNotExist) {
+			return errors.New("folder does not exist")
+		}
+		if !info.IsDir() {
+			return errors.New("path is not a folder")
+		}
+		return nil
+	}
+	settingsbrowser.gamedirectory.OnFocusChanged = func(b bool) {
+		if !b && settingsbrowser.gamedirectory.Validate() == nil {
+			controller.Settings.SetGameDirectory(settingsbrowser.gamedirectory.Text)
+			controller.Settings.Save()
+		}
+	}
+	settingsbrowser.gamedirectory.OnSubmitted = func(s string) {
+		if settingsbrowser.gamedirectory.Validate() == nil {
+			controller.Settings.SetGameDirectory(settingsbrowser.gamedirectory.Text)
+			controller.Settings.Save()
+		}
+	}
 	gamedirectoryexplorer := widget.NewButtonWithIcon("", theme.FolderOpenIcon(), settingsbrowser.gamedirectoryExplorerCallback)
 	gamedirectory := container.NewBorder(nil, nil, nil, gamedirectoryexplorer, settingsbrowser.gamedirectory)
 	settingsbrowser.form.AppendItem(NewFormItem("Game Directory", gamedirectory))
 
 	settingsbrowser.username.SetText(controller.Settings.Settings().Username)
-	settingsbrowser.username.Validator = func(s string) error {
-		match, err := regexp.MatchString("^(?:[a-zA-Z]|[0-9]|-)+$", s)
+	settingsbrowser.username.Validator = func(username string) error {
+		match, err := regexp.MatchString("^(?:[a-zA-Z]|[0-9]|-)+$", username)
 		if !match || err != nil {
 			return errors.New("only alphanumeric characters and \"-\" allowed")
 		}
 		return nil
+	}
+	settingsbrowser.username.OnFocusChanged = func(b bool) {
+		if !b && settingsbrowser.username.Validate() == nil {
+			controller.Settings.SetUsername(settingsbrowser.username.Text)
+			controller.Settings.Save()
+		}
+	}
+	settingsbrowser.username.OnSubmitted = func(s string) {
+		if settingsbrowser.username.Validate() == nil {
+			controller.Settings.SetUsername(settingsbrowser.username.Text)
+			controller.Settings.Save()
+		}
 	}
 	settingsbrowser.form.AppendItem(NewFormItem("Username", settingsbrowser.username))
 
@@ -65,10 +112,7 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 		controller.Settings.SetServerURL(settingsbrowser.serverurl.Text)
 		controller.Settings.SetGameDirectory(settingsbrowser.gamedirectory.Text)
 		controller.Settings.SetUsername(settingsbrowser.username.Text)
-		err := controller.Settings.Settings().Save()
-		if err != nil {
-			controller.Status.Error("Error saving settings: "+err.Error(), 3*time.Second)
-		} else {
+		if controller.Settings.Save() == nil {
 			controller.Status.Info("Settings successfully saved", 3*time.Second)
 		}
 	}
@@ -110,6 +154,10 @@ func (widget *SettingsBrowser) gamedirectoryExplorerCallback() {
 			return
 		}
 		widget.gamedirectory.SetText(uri.Path())
+		if widget.gamedirectory.Validate() == nil {
+			widget.controller.Settings.SetGameDirectory(widget.gamedirectory.Text)
+			widget.controller.Settings.Save()
+		}
 	}, widget.window)
 
 	dialogStartURI, err := storage.ListerForURI(storage.NewFileURI(widget.controller.Settings.Settings().GameDirectory))
