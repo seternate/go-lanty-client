@@ -57,6 +57,11 @@ func (widget *Form) SetSubmitText(text string) {
 	widget.Refresh()
 }
 
+func (widget *Form) HideSubmit() {
+	widget.submit.Hide()
+	widget.Refresh()
+}
+
 func (widget *Form) SetCancelText(text string) {
 	widget.cancel.SetText(text)
 	widget.Refresh()
@@ -91,11 +96,17 @@ func (renderer *formRenderer) Layout(size fyne.Size) {
 		item.Resize(fyne.NewSize(size.Width-2*theme.InnerPadding(), item.MinSize().Height))
 		lastposition = item.Position().Y + item.Size().Height
 	}
-	buttonSize := fyne.NewSize(fyne.Max(renderer.widget.cancel.MinSize().Width, renderer.widget.submit.MinSize().Width), renderer.widget.submit.MinSize().Height)
-	renderer.widget.submit.Resize(buttonSize)
-	renderer.widget.submit.Move(fyne.NewPos(size.Width-theme.InnerPadding()-buttonSize.Width, size.Height-theme.InnerPadding()-buttonSize.Height))
-	renderer.widget.cancel.Resize(buttonSize)
-	renderer.widget.cancel.Move(fyne.NewPos(renderer.widget.submit.Position().X-theme.InnerPadding()-buttonSize.Width, renderer.widget.submit.Position().Y))
+	if renderer.widget.submit.Hidden {
+		buttonSize := fyne.NewSize(renderer.widget.cancel.MinSize().Width, renderer.widget.cancel.MinSize().Height)
+		renderer.widget.cancel.Resize(buttonSize)
+		renderer.widget.cancel.Move(fyne.NewPos(size.Width-theme.InnerPadding()-buttonSize.Width, size.Height-theme.InnerPadding()-buttonSize.Height))
+	} else {
+		buttonSize := fyne.NewSize(fyne.Max(renderer.widget.cancel.MinSize().Width, renderer.widget.submit.MinSize().Width), renderer.widget.submit.MinSize().Height)
+		renderer.widget.submit.Resize(buttonSize)
+		renderer.widget.submit.Move(fyne.NewPos(size.Width-theme.InnerPadding()-buttonSize.Width, size.Height-theme.InnerPadding()-buttonSize.Height))
+		renderer.widget.cancel.Resize(buttonSize)
+		renderer.widget.cancel.Move(fyne.NewPos(renderer.widget.submit.Position().X-theme.InnerPadding()-buttonSize.Width, renderer.widget.submit.Position().Y))
+	}
 }
 
 func (renderer *formRenderer) MinSize() fyne.Size {

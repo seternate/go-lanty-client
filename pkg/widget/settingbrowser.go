@@ -106,16 +106,8 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 	}
 	settingsbrowser.form.AppendItem(NewFormItem("Username", settingsbrowser.username))
 
-	settingsbrowser.form.SetSubmitText("Save")
+	settingsbrowser.form.HideSubmit()
 	settingsbrowser.form.SetCancelText("Reset")
-	settingsbrowser.form.OnSubmit = func() {
-		controller.Settings.SetServerURL(settingsbrowser.serverurl.Text)
-		controller.Settings.SetGameDirectory(settingsbrowser.gamedirectory.Text)
-		controller.Settings.SetUsername(settingsbrowser.username.Text)
-		if controller.Settings.Save() == nil {
-			controller.Status.Info("Settings successfully saved", 3*time.Second)
-		}
-	}
 	settingsbrowser.form.OnCancel = func() {
 		settingsbrowser.ResetData()
 		controller.Status.Info("Settings resetted", 3*time.Second)
