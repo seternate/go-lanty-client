@@ -3,6 +3,7 @@ package controller
 import (
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/seternate/go-lanty-client/pkg/setting"
 	"github.com/seternate/go-lanty/pkg/util"
@@ -50,6 +51,14 @@ func (controller *SettingsController) Settings() setting.Settings {
 	defer controller.mutex.RUnlock()
 	controller.mutex.RLock()
 	return *controller.settings
+}
+
+func (controller *SettingsController) Save() (err error) {
+	err = controller.Settings().Save()
+	if err != nil {
+		controller.parent.Status.Error("Error saving settings: "+err.Error(), 3*time.Second)
+	}
+	return
 }
 
 func (controller *SettingsController) Subscribe(subscriber chan struct{}) {
