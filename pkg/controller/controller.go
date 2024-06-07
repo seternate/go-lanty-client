@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"net/url"
 	"sync"
 	"time"
 
@@ -38,17 +37,9 @@ func NewController(ctx context.Context) *Controller {
 		log.Fatal().Err(err).Send()
 	}
 
-	u, err := url.Parse(settings.ServerURL)
-	if len(u.Host) == 0 {
-		u, err = url.Parse("http://" + settings.ServerURL)
-	}
+	client, err := api.NewClient(settings.ServerURL, timeout)
 	if err != nil {
-		log.Fatal().Err(err).Str("url", settings.ServerURL).Msg("failed to parse server URL")
-	}
-
-	client := api.NewClient(u, timeout)
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to create API client")
+		log.Error().Err(err).Msg("error creating API client")
 	}
 	log.Debug().Msg("created API client")
 

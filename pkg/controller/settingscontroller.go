@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"errors"
+	"os"
 	"slices"
 	"sync"
 	"time"
@@ -27,17 +29,32 @@ func NewSettingsController(parent *Controller, settings *setting.Settings) (cont
 }
 
 func (controller *SettingsController) SetServerURL(serverurl string) {
+	err := controller.parent.client.SetBaseURL(serverurl)
+	if err != nil {
+		controller.parent.Status.Error("Invalid server URL: "+err.Error(), 3*time.Second)
+	}
 	controller.mutex.Lock()
 	controller.settings.ServerURL = serverurl
 	controller.mutex.Unlock()
 	controller.notifySubcriber()
+	controller.Save()
 }
 
 func (controller *SettingsController) SetGameDirectory(gamedirectory string) {
+	info, err := os.Stat(gamedirectory)
+	if errors.Is(err, os.ErrNotExist) {
+		controller.parent.Status.Error("Invalid gamedirectory path: does not exist", 3*time.Second)
+		return
+	}
+	if !info.IsDir() {
+		controller.parent.Status.Error("Invalid gamedirectory path: not a folder", 3*time.Second)
+		return
+	}
 	controller.mutex.Lock()
 	controller.settings.GameDirectory = gamedirectory
 	controller.mutex.Unlock()
 	controller.notifySubcriber()
+	controller.Save()
 }
 
 func (controller *SettingsController) SetUsername(username string) {
@@ -45,6 +62,7 @@ func (controller *SettingsController) SetUsername(username string) {
 	controller.settings.Username = username
 	controller.mutex.Unlock()
 	controller.notifySubcriber()
+	controller.Save()
 }
 
 func (controller *SettingsController) Settings() setting.Settings {
