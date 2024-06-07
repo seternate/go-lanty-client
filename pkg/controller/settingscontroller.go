@@ -89,7 +89,7 @@ func (controller *SettingsController) Unsubscribe(subscriber chan struct{}) {
 	defer controller.mutex.Unlock()
 	controller.mutex.Lock()
 	index := slices.Index(controller.subscriber, subscriber)
-	slices.Delete(controller.subscriber, index, index+1)
+	_ = slices.Delete(controller.subscriber, index, index+1)
 }
 
 func (controller *SettingsController) notifySubcriber() {
