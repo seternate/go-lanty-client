@@ -2,7 +2,6 @@ package widget
 
 import (
 	"errors"
-	"os"
 	"regexp"
 	"time"
 
@@ -44,41 +43,23 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 
 	settingsbrowser.serverurl.SetText(controller.Settings.Settings().ServerURL)
 	settingsbrowser.serverurl.OnFocusChanged = func(b bool) {
-		if !b && settingsbrowser.serverurl.Validate() == nil {
+		if !b {
 			controller.Settings.SetServerURL(settingsbrowser.serverurl.Text)
-			controller.Settings.Save()
 		}
 	}
 	settingsbrowser.serverurl.OnSubmitted = func(s string) {
-		if settingsbrowser.serverurl.Validate() == nil {
-			controller.Settings.SetServerURL(settingsbrowser.serverurl.Text)
-			controller.Settings.Save()
-		}
+		controller.Settings.SetServerURL(settingsbrowser.serverurl.Text)
 	}
 	settingsbrowser.form.AppendItem(NewFormItem("Server URL", settingsbrowser.serverurl))
 
 	settingsbrowser.gamedirectory.SetText(controller.Settings.Settings().GameDirectory)
-	settingsbrowser.gamedirectory.Validator = func(path string) error {
-		info, err := os.Stat(path)
-		if errors.Is(err, os.ErrNotExist) {
-			return errors.New("folder does not exist")
-		}
-		if !info.IsDir() {
-			return errors.New("path is not a folder")
-		}
-		return nil
-	}
 	settingsbrowser.gamedirectory.OnFocusChanged = func(b bool) {
-		if !b && settingsbrowser.gamedirectory.Validate() == nil {
+		if !b {
 			controller.Settings.SetGameDirectory(settingsbrowser.gamedirectory.Text)
-			controller.Settings.Save()
 		}
 	}
 	settingsbrowser.gamedirectory.OnSubmitted = func(s string) {
-		if settingsbrowser.gamedirectory.Validate() == nil {
-			controller.Settings.SetGameDirectory(settingsbrowser.gamedirectory.Text)
-			controller.Settings.Save()
-		}
+		controller.Settings.SetGameDirectory(settingsbrowser.gamedirectory.Text)
 	}
 	gamedirectoryexplorer := widget.NewButtonWithIcon("", theme.FolderOpenIcon(), settingsbrowser.gamedirectoryExplorerCallback)
 	gamedirectory := container.NewBorder(nil, nil, nil, gamedirectoryexplorer, settingsbrowser.gamedirectory)
@@ -95,13 +76,11 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 	settingsbrowser.username.OnFocusChanged = func(b bool) {
 		if !b && settingsbrowser.username.Validate() == nil {
 			controller.Settings.SetUsername(settingsbrowser.username.Text)
-			controller.Settings.Save()
 		}
 	}
 	settingsbrowser.username.OnSubmitted = func(s string) {
 		if settingsbrowser.username.Validate() == nil {
 			controller.Settings.SetUsername(settingsbrowser.username.Text)
-			controller.Settings.Save()
 		}
 	}
 	settingsbrowser.form.AppendItem(NewFormItem("Username", settingsbrowser.username))
