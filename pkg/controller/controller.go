@@ -77,7 +77,7 @@ func (controller *Controller) WithStatusController() *Controller {
 }
 
 func (controller *Controller) WithGameController() *Controller {
-	controller.Game = NewGameController(controller, 10*time.Second)
+	controller.Game = NewGameController(controller, 2*time.Second)
 	return controller
 }
 
