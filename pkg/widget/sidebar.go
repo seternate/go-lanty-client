@@ -17,6 +17,7 @@ type Sidebar struct {
 
 	OnGamesTapped     func()
 	OnDownloadsTapped func()
+	OnChatsTapped     func()
 	OnUsersTapped     func()
 	OnSettingsTapped  func()
 }
@@ -27,6 +28,7 @@ func NewSidebar(text string) *Sidebar {
 		buttons: map[string]*widget.Button{
 			"games":     widget.NewButtonWithIcon("Games", fynetheme.MediaPlayIcon(), nil),
 			"downloads": widget.NewButtonWithIcon("Downloads", fynetheme.DownloadIcon(), nil),
+			"chat":      widget.NewButtonWithIcon("Chat", fynetheme.MailReplyIcon(), nil),
 			"users":     widget.NewButtonWithIcon("Users", fynetheme.AccountIcon(), nil),
 			"settings":  widget.NewButtonWithIcon("Settings", fynetheme.SettingsIcon(), nil),
 		},
@@ -41,6 +43,11 @@ func NewSidebar(text string) *Sidebar {
 	sidebar.buttons["downloads"].OnTapped = func() {
 		if sidebar.OnDownloadsTapped != nil {
 			sidebar.OnDownloadsTapped()
+		}
+	}
+	sidebar.buttons["chat"].OnTapped = func() {
+		if sidebar.OnChatsTapped != nil {
+			sidebar.OnChatsTapped()
 		}
 	}
 	sidebar.buttons["users"].OnTapped = func() {
@@ -107,6 +114,7 @@ func (renderer *sidebarRenderer) Layout(size fyne.Size) {
 	for _, button := range []*widget.Button{
 		renderer.widget.buttons["games"],
 		renderer.widget.buttons["downloads"],
+		renderer.widget.buttons["chat"],
 		renderer.widget.buttons["users"],
 		renderer.widget.buttons["settings"],
 	} {

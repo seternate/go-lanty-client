@@ -45,7 +45,8 @@ func main() {
 		WithStatusController().
 		WithGameController().
 		WithDownloadController().
-		WithUserController()
+		WithUserController().
+		WithChatController()
 
 	app := app.New()
 	window := app.NewWindow(getApplicationTitle())

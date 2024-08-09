@@ -7,7 +7,7 @@ require (
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/rs/zerolog v1.31.0
-	github.com/seternate/go-lanty v0.1.0-beta.0.20240607200813-712d640af65d
+	github.com/seternate/go-lanty v0.1.0-beta.0.20240809132204-3be3d1587bdd
 	golang.design/x/clipboard v0.7.0
 )
 
@@ -26,6 +26,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jsummers/gobmp v0.0.0-20151104160322-e2ba15ffa76e // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
