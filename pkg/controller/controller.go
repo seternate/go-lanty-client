@@ -17,6 +17,7 @@ type Controller struct {
 	Download *DownloadController
 	Game     *GameController
 	User     *UserController
+	Chat     *ChatController
 
 	settings  *setting.Settings
 	client    *api.Client
@@ -88,5 +89,10 @@ func (controller *Controller) WithDownloadController() *Controller {
 
 func (controller *Controller) WithUserController() *Controller {
 	controller.User = NewUserController(controller, 3*handler.UserStaleDuration/4)
+	return controller
+}
+
+func (controller *Controller) WithChatController() *Controller {
+	controller.Chat = NewChatController(controller)
 	return controller
 }

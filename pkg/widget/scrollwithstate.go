@@ -22,6 +22,15 @@ func NewVScrollWithState(content fyne.CanvasObject) (widget *ScrollWithState) {
 	return
 }
 
+func (widget *ScrollWithState) ScrollToBottom() {
+	widget.scroll.ScrollToBottom()
+	widget.Refresh()
+}
+
+func (widget *ScrollWithState) IsNearBottom(percantage float32) bool {
+	return widget.scroll.Offset.Y+widget.scroll.Size().Height > percantage*widget.scroll.Content.Size().Height
+}
+
 func (widget *ScrollWithState) Show() {
 	if widget.Hidden {
 		widget.scroll.Offset.Y = widget.lastpostion
