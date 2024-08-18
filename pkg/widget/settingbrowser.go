@@ -22,22 +22,24 @@ type SettingsBrowser struct {
 	window     fyne.Window
 	form       *Form
 
-	serverurl     *Entry
-	gamedirectory *Entry
-	username      *Entry
+	serverurl         *Entry
+	gamedirectory     *Entry
+	username          *Entry
+	downloaddirectory *Entry
 
 	settingschanged chan struct{}
 }
 
 func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (settingsbrowser *SettingsBrowser) {
 	settingsbrowser = &SettingsBrowser{
-		controller:      controller,
-		window:          window,
-		form:            NewForm(),
-		serverurl:       NewEntry(),
-		gamedirectory:   NewEntry(),
-		username:        NewEntry(),
-		settingschanged: make(chan struct{}, 50),
+		controller:        controller,
+		window:            window,
+		form:              NewForm(),
+		serverurl:         NewEntry(),
+		gamedirectory:     NewEntry(),
+		username:          NewEntry(),
+		downloaddirectory: NewEntry(),
+		settingschanged:   make(chan struct{}, 50),
 	}
 	settingsbrowser.ExtendBaseWidget(settingsbrowser)
 
@@ -85,6 +87,19 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 	}
 	settingsbrowser.form.AppendItem(NewFormItem("Username", settingsbrowser.username))
 
+	settingsbrowser.downloaddirectory.SetText(controller.Settings.Settings().DownloadDirectory)
+	settingsbrowser.downloaddirectory.OnFocusChanged = func(b bool) {
+		if !b {
+			controller.Settings.SetDownloadDirectory(settingsbrowser.downloaddirectory.Text)
+		}
+	}
+	settingsbrowser.downloaddirectory.OnSubmitted = func(s string) {
+		controller.Settings.SetDownloadDirectory(settingsbrowser.downloaddirectory.Text)
+	}
+	downloaddirectoryexplorer := widget.NewButtonWithIcon("", theme.FolderOpenIcon(), settingsbrowser.downloaddirectoryExplorerCallback)
+	downloaddirectory := container.NewBorder(nil, nil, nil, downloaddirectoryexplorer, settingsbrowser.downloaddirectory)
+	settingsbrowser.form.AppendItem(NewFormItem("Download Directory", downloaddirectory))
+
 	settingsbrowser.form.HideSubmit()
 	settingsbrowser.form.SetCancelText("Reset")
 	settingsbrowser.form.OnCancel = func() {
@@ -114,6 +129,7 @@ func (widget *SettingsBrowser) settingsUpdater() {
 			widget.serverurl.SetText(widget.controller.Settings.Settings().ServerURL)
 			widget.gamedirectory.SetText(widget.controller.Settings.Settings().GameDirectory)
 			widget.username.SetText(widget.controller.Settings.Settings().Username)
+			widget.downloaddirectory.SetText(widget.controller.Settings.Settings().DownloadDirectory)
 			widget.Refresh()
 		}
 	}
@@ -141,10 +157,33 @@ func (widget *SettingsBrowser) gamedirectoryExplorerCallback() {
 	folderdialog.Show()
 }
 
+func (widget *SettingsBrowser) downloaddirectoryExplorerCallback() {
+	folderdialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+		if uri == nil || err != nil {
+			return
+		}
+		widget.downloaddirectory.SetText(uri.Path())
+		if widget.downloaddirectory.Validate() == nil {
+			widget.controller.Settings.SetDownloadDirectory(widget.downloaddirectory.Text)
+			widget.controller.Settings.Save()
+		}
+	}, widget.window)
+
+	dialogStartURI, err := storage.ListerForURI(storage.NewFileURI(widget.controller.Settings.Settings().DownloadDirectory))
+	if err == nil {
+		folderdialog.SetLocation(dialogStartURI)
+	}
+
+	//This will make the folderopen dialog to be "fullscreen" inside the app
+	folderdialog.Resize(fyne.NewSize(10000, 10000))
+	folderdialog.Show()
+}
+
 func (widget *SettingsBrowser) ResetData() {
 	widget.serverurl.SetText(widget.controller.Settings.Settings().ServerURL)
 	widget.gamedirectory.SetText(widget.controller.Settings.Settings().GameDirectory)
 	widget.username.SetText(widget.controller.Settings.Settings().Username)
+	widget.downloaddirectory.SetText(widget.controller.Settings.Settings().DownloadDirectory)
 	widget.Refresh()
 }
 

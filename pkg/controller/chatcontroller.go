@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"fmt"
+	"net/url"
 	"slices"
 	"sync"
 	"time"
@@ -31,10 +33,56 @@ func NewChatController(parent *Controller) (controller *ChatController) {
 	return
 }
 
+func (controller *ChatController) DownloadFile(message chat.Message) {
+	if message.GetType() != chat.TYPE_FILE {
+		log.Warn().Interface("message", message).Msg("wrong message type provided for file download")
+		return
+	}
+	m := message.(*chat.FileMessage)
+	u, err := url.Parse(m.Message.URL)
+	if err != nil {
+		log.Error().Err(err).Interface("message", message).Msg("error parsing filemessage url")
+		controller.parent.Status.Error("Failed to start download", 3*time.Second)
+		return
+	}
+	download, err := controller.parent.client.File.GetFile(controller.parent.ctx, *u, controller.parent.settings.DownloadDirectory)
+	if err != nil {
+		log.Error().Err(err).Interface("message", message).Msg("error starting filemessage download")
+		controller.parent.Status.Error(fmt.Sprintf("Failed downloading %s", download.Filename()), 3*time.Second)
+		return
+	}
+	go func() {
+		<-download.Done
+		if download.Err != nil {
+			log.Error().Err(err).Str("file", download.Filename()).Msg("error downloading filemessage file")
+			controller.parent.Status.Error(fmt.Sprintf("Failed downloading %s", download.Filename()), 3*time.Second)
+			return
+		}
+		log.Debug().Str("file", download.Filename()).Msg("sucessfully downloaded filemessage file")
+		controller.parent.Status.Info(fmt.Sprintf("Downloaded \"%s\" to \"%s\"", download.Filename(), controller.parent.settings.DownloadDirectory), 3*time.Second)
+	}()
+}
+
 func (controller *ChatController) SendTextMessage(message string) {
 	err := controller.parent.client.Chat.SendMessage(chat.NewTextMessage(controller.parent.User.GetUser(), message))
 	if err != nil {
 		log.Error().Err(err).Msg("error sending textmessage to server")
+	}
+}
+
+func (controller *ChatController) SendFileMessage(path string) {
+	controller.parent.Status.Info(fmt.Sprintf("Uploading file \"%s\" ...", path), 3*time.Second)
+	fileresponse, err := controller.parent.client.File.UploadFile(path)
+	if err != nil {
+		controller.parent.Status.Error(fmt.Sprintf("Error uploading file \"%s\"", path), 3*time.Second)
+		log.Error().Err(err).Str("file", path).Msg("error uploading file to server")
+		return
+	}
+
+	message := chat.NewFileMessage(controller.parent.User.GetUser(), fileresponse)
+	err = controller.parent.client.Chat.SendMessage(message)
+	if err != nil {
+		log.Error().Err(err).Interface("message", message).Msg("error sending filemessage to server")
 	}
 }
 

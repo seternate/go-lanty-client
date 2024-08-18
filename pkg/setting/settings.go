@@ -14,9 +14,10 @@ const (
 )
 
 type Settings struct {
-	ServerURL     string `yaml:"serverurl"`
-	GameDirectory string `yaml:"gamedirectory"`
-	Username      string `yaml:"username"`
+	ServerURL         string `yaml:"serverurl"`
+	GameDirectory     string `yaml:"gamedirectory"`
+	Username          string `yaml:"username"`
+	DownloadDirectory string `yaml:"downloaddirectory"`
 }
 
 func LoadSettings() (s *Settings, err error) {

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -15,6 +16,7 @@ import (
 	"github.com/seternate/go-lanty-client/pkg/theme"
 	"github.com/seternate/go-lanty/pkg/chat"
 	"github.com/seternate/go-lanty/pkg/util"
+	"golang.design/x/clipboard"
 )
 
 type MessageBoard struct {
@@ -82,6 +84,15 @@ func (widget *MessageBoard) addMessageTile(message chat.Message) {
 		messagetile.SetBackgroundColor(fynetheme.PrimaryColor())
 		messagetile.HideUser()
 	}
+	if message.GetType() == chat.TYPE_FILE {
+		messagetile.SetIcon(fynetheme.FileIcon())
+		messagetile.OnTapped = widget.controller.Chat.DownloadFile
+	} else if message.GetType() == chat.TYPE_TEXT {
+		messagetile.OnTapped = func(m chat.Message) {
+			clipboard.Write(clipboard.FmtText, []byte(m.GetMessage()))
+			widget.controller.Status.Info("Message copied", 3*time.Second)
+		}
+	}
 	widget.messagetiles.PushFront(messagetile)
 	widget.Refresh()
 	widget.notifySubcriber()
@@ -134,6 +145,9 @@ func (renderer *messageBoardRenderer) Layout(size fyne.Size) {
 		}
 		//Calculate Tile Width
 		maxtextwidth := fyne.MeasureText(longestline, fynetheme.TextSize(), fyne.TextStyle{}).Width + 4*fynetheme.LineSpacing()
+		if messagetile.HasIcon() {
+			maxtextwidth = maxtextwidth + 18
+		}
 		messagetilewidth := fyne.Max(maxtextwidth, messagetile.MinSize().Width)
 		if messagetilewidth > size.Width*0.6 {
 			messagetilewidth = size.Width * 0.6

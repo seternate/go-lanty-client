@@ -65,6 +65,14 @@ func (controller *SettingsController) SetUsername(username string) {
 	controller.Save()
 }
 
+func (controller *SettingsController) SetDownloadDirectory(downloaddirectory string) {
+	controller.mutex.Lock()
+	controller.settings.DownloadDirectory = downloaddirectory
+	controller.mutex.Unlock()
+	controller.notifySubcriber()
+	controller.Save()
+}
+
 func (controller *SettingsController) Settings() setting.Settings {
 	defer controller.mutex.RUnlock()
 	controller.mutex.RLock()
