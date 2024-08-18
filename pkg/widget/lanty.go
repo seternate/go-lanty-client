@@ -40,7 +40,7 @@ func NewLanty(controller *controller.Controller, window fyne.Window) *Lanty {
 	downloadbrowser := NewDownloadBrowser(controller)
 	userbrowser := NewUserBrowser(controller)
 	settingsbrowser := NewSettingsBrowser(controller, window)
-	chatbrowser := NewChatBrowser(controller)
+	chatbrowser := NewChatBrowser(controller, window)
 
 	lanty := &Lanty{
 		controller:      controller,
