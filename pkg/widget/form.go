@@ -62,6 +62,11 @@ func (widget *Form) HideSubmit() {
 	widget.Refresh()
 }
 
+func (widget *Form) ShowSubmit() {
+	widget.submit.Show()
+	widget.Refresh()
+}
+
 func (widget *Form) SetCancelText(text string) {
 	widget.cancel.SetText(text)
 	widget.Refresh()
