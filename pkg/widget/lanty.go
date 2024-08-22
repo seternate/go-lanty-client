@@ -18,16 +18,17 @@ import (
 type Lanty struct {
 	widget.BaseWidget
 
-	controller      *controller.Controller
-	sidebar         *Sidebar
-	gamebrowser     *ScrollWithState
-	startserver     *ScrollWithState
-	joinserver      *JoinServer
-	downloadbrowser *ScrollWithState
-	userbrowser     *ScrollWithState
-	settingsbrowser *ScrollWithState
-	statusbar       *StatusBar
-	chatbrowser     *fyne.Container
+	controller             *controller.Controller
+	sidebar                *Sidebar
+	gamebrowser            *ScrollWithState
+	startserver            *ScrollWithState
+	joinserver             *JoinServer
+	downloadbrowser        *ScrollWithState
+	userbrowser            *ScrollWithState
+	settingsbrowser        *ScrollWithState
+	statusbar              *StatusBar
+	chatbrowser            *fyne.Container
+	defaultusernamebrowser *ScrollWithState
 
 	resetSettingsBrowser func()
 
@@ -41,18 +42,20 @@ func NewLanty(controller *controller.Controller, window fyne.Window) *Lanty {
 	userbrowser := NewUserBrowser(controller)
 	settingsbrowser := NewSettingsBrowser(controller, window)
 	chatbrowser := NewChatBrowser(controller, window)
+	defaultusernamebrowser := NewDefaultUsernameBrowser(controller, window)
 
 	lanty := &Lanty{
-		controller:      controller,
-		sidebar:         NewSidebar(setting.APPLICATION_NAME),
-		gamebrowser:     NewVScrollWithState(gamebrowser),
-		startserver:     NewVScrollWithState(startserver),
-		joinserver:      NewJoinServer(controller),
-		downloadbrowser: NewVScrollWithState(downloadbrowser),
-		userbrowser:     NewVScrollWithState(userbrowser),
-		settingsbrowser: NewVScrollWithState(settingsbrowser),
-		statusbar:       NewStatusBar(controller),
-		chatbrowser:     container.NewStack(chatbrowser),
+		controller:             controller,
+		sidebar:                NewSidebar(setting.APPLICATION_NAME),
+		gamebrowser:            NewVScrollWithState(gamebrowser),
+		startserver:            NewVScrollWithState(startserver),
+		joinserver:             NewJoinServer(controller),
+		downloadbrowser:        NewVScrollWithState(downloadbrowser),
+		userbrowser:            NewVScrollWithState(userbrowser),
+		settingsbrowser:        NewVScrollWithState(settingsbrowser),
+		statusbar:              NewStatusBar(controller),
+		chatbrowser:            container.NewStack(chatbrowser),
+		defaultusernamebrowser: NewVScrollWithState(defaultusernamebrowser),
 		resetSettingsBrowser: func() {
 			settingsbrowser.ResetData()
 		},
@@ -110,7 +113,17 @@ func NewLanty(controller *controller.Controller, window fyne.Window) *Lanty {
 		controller.Status.Info("IP copied", 3*time.Second)
 	})
 
-	lanty.showGameBrowser()
+	defaultusernamebrowser.SetOnSubmit(func() {
+		defaultusernamebrowser.Hide()
+		lanty.showGameBrowser()
+	})
+	if controller.Settings.Settings().Username == setting.DEFAULT_USERNAME {
+		defaultusernamebrowser.Show()
+		lanty.hideAll()
+	} else {
+		defaultusernamebrowser.Hide()
+		lanty.showGameBrowser()
+	}
 
 	controller.Status.Subscribe(lanty.statusupdate)
 	controller.WaitGroup().Add(1)
@@ -119,7 +132,20 @@ func NewLanty(controller *controller.Controller, window fyne.Window) *Lanty {
 	return lanty
 }
 
+func (widget *Lanty) hideAll() {
+	widget.sidebar.Hide()
+	widget.gamebrowser.Hide()
+	widget.downloadbrowser.Hide()
+	widget.chatbrowser.Hide()
+	widget.userbrowser.Hide()
+	widget.settingsbrowser.Hide()
+	widget.startserver.Hide()
+	widget.joinserver.Hide()
+	widget.Refresh()
+}
+
 func (widget *Lanty) showGameBrowser() {
+	widget.sidebar.Show()
 	widget.gamebrowser.Show()
 	widget.downloadbrowser.Hide()
 	widget.chatbrowser.Hide()
@@ -131,6 +157,7 @@ func (widget *Lanty) showGameBrowser() {
 }
 
 func (widget *Lanty) showDownloadBrowser() {
+	widget.sidebar.Show()
 	widget.gamebrowser.Hide()
 	widget.downloadbrowser.Show()
 	widget.chatbrowser.Hide()
@@ -142,6 +169,7 @@ func (widget *Lanty) showDownloadBrowser() {
 }
 
 func (widget *Lanty) showChatBrowser() {
+	widget.sidebar.Show()
 	widget.gamebrowser.Hide()
 	widget.downloadbrowser.Hide()
 	widget.chatbrowser.Show()
@@ -153,6 +181,7 @@ func (widget *Lanty) showChatBrowser() {
 }
 
 func (widget *Lanty) showUserBrowser() {
+	widget.sidebar.Show()
 	widget.gamebrowser.Hide()
 	widget.downloadbrowser.Hide()
 	widget.chatbrowser.Hide()
@@ -164,6 +193,7 @@ func (widget *Lanty) showUserBrowser() {
 }
 
 func (widget *Lanty) showSettingsBrowser() {
+	widget.sidebar.Show()
 	widget.gamebrowser.Hide()
 	widget.downloadbrowser.Hide()
 	widget.chatbrowser.Hide()
@@ -176,6 +206,7 @@ func (widget *Lanty) showSettingsBrowser() {
 }
 
 func (widget *Lanty) showStartServer() {
+	widget.sidebar.Show()
 	widget.gamebrowser.Hide()
 	widget.downloadbrowser.Hide()
 	widget.chatbrowser.Hide()
@@ -187,6 +218,7 @@ func (widget *Lanty) showStartServer() {
 }
 
 func (widget *Lanty) showJoinServer() {
+	widget.sidebar.Show()
 	widget.gamebrowser.Hide()
 	widget.downloadbrowser.Hide()
 	widget.chatbrowser.Hide()
@@ -241,10 +273,13 @@ func (renderer *lantyRenderer) Objects() []fyne.CanvasObject {
 		renderer.widget.sidebar,
 		renderer.main,
 		renderer.widget.statusbar,
+		renderer.widget.defaultusernamebrowser,
 	}
 }
 
 func (renderer *lantyRenderer) Layout(size fyne.Size) {
+	renderer.widget.defaultusernamebrowser.Move(fyne.NewPos(0, 0))
+	renderer.widget.defaultusernamebrowser.Resize(size)
 	renderer.widget.sidebar.Move(fyne.NewPos(0, 0))
 	renderer.widget.sidebar.Resize(fyne.NewSize(fyne.Max(size.Width/7, renderer.widget.sidebar.MinSize().Width), size.Height))
 	renderer.main.Resize(fyne.NewSize(size.Width-fyne.Max(size.Width/7, renderer.widget.sidebar.MinSize().Width), size.Height))
@@ -268,6 +303,7 @@ func (renderer *lantyRenderer) Refresh() {
 	renderer.main.Refresh()
 	renderer.widget.sidebar.Refresh()
 	renderer.widget.statusbar.Refresh()
+	renderer.widget.defaultusernamebrowser.Refresh()
 }
 
 func (renderer *lantyRenderer) Destroy() {}

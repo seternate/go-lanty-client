@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/rs/zerolog/log"
 	"github.com/seternate/go-lanty-client/pkg/controller"
+	"github.com/seternate/go-lanty-client/pkg/setting"
 )
 
 type SettingsBrowser struct {
@@ -26,6 +27,8 @@ type SettingsBrowser struct {
 	gamedirectory     *Entry
 	username          *Entry
 	downloaddirectory *Entry
+
+	OnSubmit func()
 
 	settingschanged chan struct{}
 }
@@ -69,6 +72,9 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 
 	settingsbrowser.username.SetText(controller.Settings.Settings().Username)
 	settingsbrowser.username.Validator = func(username string) error {
+		if username == setting.DEFAULT_USERNAME {
+			return errors.New("default username not allowed")
+		}
 		match, err := regexp.MatchString("^(?:[a-zA-Z]|[0-9]|-)+$", username)
 		if !match || err != nil {
 			return errors.New("only alphanumeric characters and \"-\" allowed")
@@ -101,6 +107,20 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 	settingsbrowser.form.AppendItem(NewFormItem("Download Directory", downloaddirectory))
 
 	settingsbrowser.form.HideSubmit()
+	settingsbrowser.form.OnSubmit = func() {
+		if settingsbrowser.OnSubmit != nil {
+			serverurl := settingsbrowser.serverurl.Text
+			gamedir := settingsbrowser.gamedirectory.Text
+			username := settingsbrowser.username.Text
+			downloaddir := settingsbrowser.downloaddirectory.Text
+			controller.Settings.SetServerURL(serverurl)
+			controller.Settings.SetGameDirectory(gamedir)
+			controller.Settings.SetUsername(username)
+			controller.Settings.SetDownloadDirectory(downloaddir)
+			settingsbrowser.OnSubmit()
+		}
+	}
+
 	settingsbrowser.form.SetCancelText("Reset")
 	settingsbrowser.form.OnCancel = func() {
 		settingsbrowser.ResetData()
@@ -111,6 +131,16 @@ func NewSettingsBrowser(controller *controller.Controller, window fyne.Window) (
 	settingsbrowser.run()
 
 	return settingsbrowser
+}
+
+func (widget *SettingsBrowser) SetOnSubmit(onSubmit func()) {
+	if onSubmit != nil {
+		widget.form.ShowSubmit()
+	} else {
+		widget.form.HideSubmit()
+	}
+	widget.OnSubmit = onSubmit
+	widget.Refresh()
 }
 
 func (widget *SettingsBrowser) run() {

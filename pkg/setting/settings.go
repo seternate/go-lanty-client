@@ -10,7 +10,8 @@ import (
 const (
 	APPLICATION_NAME = "Lanty"
 	SETTINGS_PATH    = "settings.yaml"
-	VERSION          = "v0.1.0-beta"
+	VERSION          = "v0.2.0"
+	DEFAULT_USERNAME = "lanty"
 )
 
 type Settings struct {
