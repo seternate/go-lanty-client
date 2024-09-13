@@ -114,14 +114,14 @@ func NewLanty(controller *controller.Controller, window fyne.Window) *Lanty {
 	})
 
 	defaultusernamebrowser.SetOnSubmit(func() {
-		defaultusernamebrowser.Hide()
+		lanty.defaultusernamebrowser.Hide()
 		lanty.showGameBrowser()
 	})
 	if controller.Settings.Settings().Username == setting.DEFAULT_USERNAME {
-		defaultusernamebrowser.Show()
+		lanty.defaultusernamebrowser.Show()
 		lanty.hideAll()
 	} else {
-		defaultusernamebrowser.Hide()
+		lanty.defaultusernamebrowser.Hide()
 		lanty.showGameBrowser()
 	}
 
@@ -270,10 +270,10 @@ func newLantyRenderer(widget *Lanty) *lantyRenderer {
 
 func (renderer *lantyRenderer) Objects() []fyne.CanvasObject {
 	return []fyne.CanvasObject{
+		renderer.widget.defaultusernamebrowser,
 		renderer.widget.sidebar,
 		renderer.main,
 		renderer.widget.statusbar,
-		renderer.widget.defaultusernamebrowser,
 	}
 }
 
