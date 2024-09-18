@@ -5,7 +5,6 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/seternate/go-lanty-client/pkg/setting"
 	"github.com/seternate/go-lanty-client/pkg/theme"
 )
 
@@ -75,7 +74,6 @@ type sidebarRenderer struct {
 	widget     *Sidebar
 	background *canvas.Rectangle
 	text       *canvas.Text
-	version    *canvas.Text
 	objects    []fyne.CanvasObject
 }
 
@@ -84,12 +82,10 @@ func newSidebarRenderer(widget *Sidebar) *sidebarRenderer {
 		widget:     widget,
 		background: canvas.NewRectangle(fynetheme.InputBorderColor()),
 		text:       canvas.NewText(widget.text, theme.ForegroundColor()),
-		version:    canvas.NewText(setting.VERSION, theme.ForegroundColor()),
 	}
 	renderer.objects = []fyne.CanvasObject{
 		renderer.background,
 		renderer.text,
-		renderer.version,
 	}
 	for _, button := range renderer.widget.buttons {
 		renderer.objects = append(renderer.objects, button)
@@ -122,9 +118,6 @@ func (renderer *sidebarRenderer) Layout(size fyne.Size) {
 		button.Move(fyne.NewPos(theme.InnerPadding(), textsize.Height*1.5+(button.MinSize().Height+theme.InnerPadding())*float32(index)))
 		index++
 	}
-
-	textsize = fyne.MeasureText(renderer.version.Text, renderer.version.TextSize, renderer.version.TextStyle)
-	renderer.version.Move(fyne.NewPos(theme.InnerPadding(), size.Height-theme.InnerPadding()-textsize.Height))
 }
 
 func (renderer *sidebarRenderer) MinSize() fyne.Size {
@@ -136,8 +129,6 @@ func (renderer *sidebarRenderer) MinSize() fyne.Size {
 		minHeight += button.MinSize().Height + theme.InnerPadding()
 		minWidth = fyne.Max(minWidth, button.MinSize().Width+2*theme.InnerPadding())
 	}
-	textsize = fyne.MeasureText(renderer.version.Text, renderer.version.TextSize, renderer.version.TextStyle)
-	minHeight += textsize.Height + theme.InnerPadding()
 
 	return fyne.NewSize(minWidth, minHeight)
 }
@@ -146,7 +137,6 @@ func (renderer *sidebarRenderer) Refresh() {
 	renderer.text.Text = renderer.widget.text
 	renderer.background.Refresh()
 	renderer.text.Refresh()
-	renderer.version.Refresh()
 	for _, button := range renderer.widget.buttons {
 		button.Refresh()
 	}

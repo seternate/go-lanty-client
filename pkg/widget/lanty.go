@@ -19,6 +19,7 @@ type Lanty struct {
 	widget.BaseWidget
 
 	controller             *controller.Controller
+	connectionbar          *Connectionbar
 	sidebar                *Sidebar
 	gamebrowser            *ScrollWithState
 	startserver            *ScrollWithState
@@ -46,6 +47,7 @@ func NewLanty(controller *controller.Controller, window fyne.Window) *Lanty {
 
 	lanty := &Lanty{
 		controller:             controller,
+		connectionbar:          NewConnectionbar(controller),
 		sidebar:                NewSidebar(setting.APPLICATION_NAME),
 		gamebrowser:            NewVScrollWithState(gamebrowser),
 		startserver:            NewVScrollWithState(startserver),
@@ -206,7 +208,7 @@ func (widget *Lanty) showSettingsBrowser() {
 }
 
 func (widget *Lanty) showStartServer() {
-	widget.sidebar.Show()
+	widget.sidebar.Hide()
 	widget.gamebrowser.Hide()
 	widget.downloadbrowser.Hide()
 	widget.chatbrowser.Hide()
@@ -218,7 +220,7 @@ func (widget *Lanty) showStartServer() {
 }
 
 func (widget *Lanty) showJoinServer() {
-	widget.sidebar.Show()
+	widget.sidebar.Hide()
 	widget.gamebrowser.Hide()
 	widget.downloadbrowser.Hide()
 	widget.chatbrowser.Hide()
@@ -274,15 +276,18 @@ func (renderer *lantyRenderer) Objects() []fyne.CanvasObject {
 		renderer.widget.sidebar,
 		renderer.main,
 		renderer.widget.statusbar,
+		renderer.widget.connectionbar,
 	}
 }
 
 func (renderer *lantyRenderer) Layout(size fyne.Size) {
 	renderer.widget.defaultusernamebrowser.Move(fyne.NewPos(0, 0))
-	renderer.widget.defaultusernamebrowser.Resize(size)
+	renderer.widget.defaultusernamebrowser.Resize(size.SubtractWidthHeight(0, renderer.widget.connectionbar.MinSize().Height))
+	renderer.widget.connectionbar.Move(fyne.NewPos(0, size.Height-renderer.widget.connectionbar.MinSize().Height))
+	renderer.widget.connectionbar.Resize(fyne.NewSize(size.Width, renderer.widget.connectionbar.MinSize().Height))
 	renderer.widget.sidebar.Move(fyne.NewPos(0, 0))
-	renderer.widget.sidebar.Resize(fyne.NewSize(fyne.Max(size.Width/7, renderer.widget.sidebar.MinSize().Width), size.Height))
-	renderer.main.Resize(fyne.NewSize(size.Width-fyne.Max(size.Width/7, renderer.widget.sidebar.MinSize().Width), size.Height))
+	renderer.widget.sidebar.Resize(fyne.NewSize(fyne.Max(size.Width/7, renderer.widget.sidebar.MinSize().Width), size.Height-renderer.widget.connectionbar.MinSize().Height))
+	renderer.main.Resize(fyne.NewSize(size.Width-fyne.Max(size.Width/7, renderer.widget.sidebar.MinSize().Width), size.Height-renderer.widget.connectionbar.MinSize().Height))
 	renderer.main.Move(fyne.NewPos(fyne.Max(size.Width/7, renderer.widget.sidebar.MinSize().Width), 0))
 	renderer.widget.statusbar.Resize(fyne.NewSize(renderer.main.Size().Width/2, 40))
 	renderer.widget.statusbar.Move(fyne.NewPos(size.Width-theme.InnerPadding()-renderer.widget.statusbar.Size().Width, size.Height-theme.InnerPadding()-renderer.widget.statusbar.Size().Height))
@@ -290,7 +295,7 @@ func (renderer *lantyRenderer) Layout(size fyne.Size) {
 
 func (renderer *lantyRenderer) MinSize() fyne.Size {
 	size := fyne.NewSize(0, 0)
-	size.Height = fyne.Max(renderer.widget.sidebar.MinSize().Height, renderer.main.MinSize().Height)
+	size.Height = fyne.Max(renderer.widget.sidebar.MinSize().Height, renderer.main.MinSize().Height) + renderer.widget.connectionbar.MinSize().Height
 	size.Width = renderer.widget.gamebrowser.MinSize().Width + fyne.Max(renderer.widget.gamebrowser.MinSize().Width/6, renderer.widget.sidebar.MinSize().Width)
 	return size
 }
@@ -301,6 +306,7 @@ func (renderer *lantyRenderer) Refresh() {
 	//Needed for statusbar to be drawn correctly
 	//renderer.Layout(renderer.widget.Size())
 	renderer.main.Refresh()
+	renderer.widget.connectionbar.Refresh()
 	renderer.widget.sidebar.Refresh()
 	renderer.widget.statusbar.Refresh()
 	renderer.widget.defaultusernamebrowser.Refresh()

@@ -41,6 +41,7 @@ func main() {
 	}
 
 	controller := controller.NewController(signalCtx).
+		WithConnectionController().
 		WithSettingsController().
 		WithStatusController().
 		WithGameController().
