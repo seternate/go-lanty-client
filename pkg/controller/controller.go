@@ -12,12 +12,13 @@ import (
 )
 
 type Controller struct {
-	Settings *SettingsController
-	Status   *StatusController
-	Download *DownloadController
-	Game     *GameController
-	User     *UserController
-	Chat     *ChatController
+	Settings   *SettingsController
+	Status     *StatusController
+	Download   *DownloadController
+	Game       *GameController
+	User       *UserController
+	Chat       *ChatController
+	Connection *ConnectionController
 
 	settings  *setting.Settings
 	client    *api.Client
@@ -94,5 +95,10 @@ func (controller *Controller) WithUserController() *Controller {
 
 func (controller *Controller) WithChatController() *Controller {
 	controller.Chat = NewChatController(controller)
+	return controller
+}
+
+func (controller *Controller) WithConnectionController() *Controller {
+	controller.Connection = NewConnectionController(controller, 1*time.Second)
 	return controller
 }

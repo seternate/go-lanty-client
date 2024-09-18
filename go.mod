@@ -7,7 +7,7 @@ require (
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 	github.com/rs/zerolog v1.31.0
-	github.com/seternate/go-lanty v0.2.0
+	github.com/seternate/go-lanty v0.2.1-0.20240918184806-7684fbfb8ee5
 	golang.design/x/clipboard v0.7.0
 )
 
