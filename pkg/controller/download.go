@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -287,7 +288,13 @@ func (controller *Download) gameDataFilepath() string {
 }
 
 func (controller *Download) gameDataDestination() string {
-	return path.Join(controller.controller.settings.GameDirectory, controller.game.Slug)
+	gamedir := path.Join(controller.controller.settings.GameDirectory, controller.game.Slug)
+	paths, err := filesystem.SearchFilesBreadthFirst(controller.controller.Settings.Settings().GameDirectory, controller.game.Client.Executable, 3, 1)
+	if len(paths) > 0 && err == nil {
+		gamedir = filepath.Dir(paths[0])
+	}
+	fmt.Println(gamedir)
+	return gamedir
 }
 
 func (controller *Download) Subscribe(subscriber chan struct{}) {
