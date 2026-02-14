@@ -3,25 +3,20 @@
 
 # whitelist
 !.gitignore
-!.gitattributes
 !go.mod
 !go.sum
-
-!*.md
-!*.go
-!build.bat
+!LICENSE.md
+!README.md
 !settings.yaml
+
+!*.go
 
 !.github/
 !.github/**/
 !.github/**/*.yaml
 !cmd/
 !cmd/icon.png
-!cmd/winres.json
 !cmd/rsrc_*.syso
-!pkg/
-!pkg/controller/
-!pkg/layout/
-!pkg/setting/
-!pkg/theme/
-!pkg/widget/
+!cmd/winres.json
+!internal/
+!internal/**/
