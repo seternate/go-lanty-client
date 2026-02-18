@@ -71,6 +71,9 @@ func (app *App) Bootstrap(gameController *gamecontroller.GameController, userCon
 	gameList.OnOpenButtonPressed = func(slug string) {
 		gameController.OpenGame(slug)
 	}
+	gameList.OnExtensionBadgePressed = func(slug string) {
+		gameController.OpenExtensions(slug)
+	}
 	gameBrowser := gameview.NewGameBrowser(gameList, gameController.GameStatsModel)
 	app.gameContent = container.NewStack(gameBrowser)
 

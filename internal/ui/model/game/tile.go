@@ -38,6 +38,9 @@ type GameTileModel struct {
 	ProgressEndText   binding.String
 	StatusText        binding.String
 	StatusColor       binding.Untyped
+
+	HasNewExtensions   binding.Bool
+	ExtensionsVisible  binding.Bool
 }
 
 func NewGameTileModel(slug string) *GameTileModel {
@@ -55,6 +58,8 @@ func NewGameTileModel(slug string) *GameTileModel {
 		ProgressEndText:            binding.NewString(),
 		StatusText:                 binding.NewString(),
 		StatusColor:                binding.NewUntyped(),
+		HasNewExtensions:           binding.NewBool(),
+		ExtensionsVisible:          binding.NewBool(),
 	}
 
 	tile.Name.Set("N/A")
@@ -143,6 +148,14 @@ func (model *GameTileModel) MarkInstallationAsRemoved() {
 	model.InstallationDetected.Set(false)
 }
 
+func (model *GameTileModel) SetHasNewExtensions(hasNew bool) {
+	model.HasNewExtensions.Set(hasNew)
+}
+
+func (model *GameTileModel) SetExtensionsVisible(visible bool) {
+	model.ExtensionsVisible.Set(visible)
+}
+
 func (model *GameTileModel) AddChangeListener(fn func()) {
 	l := binding.NewDataListener(fn)
 	model.Name.AddListener(l)
@@ -157,4 +170,6 @@ func (model *GameTileModel) AddChangeListener(fn func()) {
 	model.BlobSizeText.AddListener(l)
 	model.SupportsJoiningMultiplayer.AddListener(l)
 	model.SupportsHostingServer.AddListener(l)
+	model.HasNewExtensions.AddListener(l)
+	model.ExtensionsVisible.AddListener(l)
 }

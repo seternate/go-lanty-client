@@ -18,22 +18,24 @@ type GameTile struct {
 
 	game *model.GameTileModel
 
-	playButton     *widget.Button
-	joinButton     *widget.Button
-	serverButton   *widget.Button
-	downloadButton *widget.Button
-	openButton     *widget.Button
-	progressBar    *widget.ProgressBar
+	playButton       *widget.Button
+	joinButton       *widget.Button
+	serverButton     *widget.Button
+	downloadButton   *widget.Button
+	openButton       *widget.Button
+	progressBar      *widget.ProgressBar
+	extensionBadge   *widget.Button
 
-	OnPlayButtonPressed     func(slug string)
+	OnPlayButtonPressed       func(slug string)
 	OnJoinButtonPressed     func(slug string)
 	OnServerButtonPressed   func(slug string)
 	OnDownloadButtonPressed func(slug string)
-	OnOpenButtonPressed     func(slug string)
+	OnOpenButtonPressed       func(slug string)
+	OnExtensionBadgePressed   func(slug string)
 }
 
 func NewGameTile(game *model.GameTileModel) *GameTile {
-	widget := &GameTile{
+	t := &GameTile{
 		game:           game,
 		playButton:     widget.NewButtonWithIcon("", theme.MediaPlayIcon(), nil),
 		joinButton:     widget.NewButtonWithIcon("", theme.LoginIcon(), nil),
@@ -41,50 +43,57 @@ func NewGameTile(game *model.GameTileModel) *GameTile {
 		downloadButton: widget.NewButtonWithIcon("", theme.DownloadIcon(), nil),
 		openButton:     widget.NewButtonWithIcon("", theme.FolderIcon(), nil),
 		progressBar:    widget.NewProgressBar(),
+		extensionBadge: widget.NewButtonWithIcon("", theme.ExtensionUpToDateIcon(), nil),
 	}
+	t.extensionBadge.Importance = widget.LowImportance
 
-	widget.progressBar.TextFormatter = func() string {
+	t.progressBar.TextFormatter = func() string {
 		return ""
 	}
-	widget.progressBar.Bind(game.Progress)
+	t.progressBar.Bind(game.Progress)
 
-	widget.playButton.Disable()
-	widget.joinButton.Disable()
-	widget.serverButton.Disable()
+	t.playButton.Disable()
+	t.joinButton.Disable()
+	t.serverButton.Disable()
 
-	widget.playButton.OnTapped = func() {
-		if widget.OnPlayButtonPressed != nil {
-			widget.OnPlayButtonPressed(widget.game.Slug)
+	t.playButton.OnTapped = func() {
+		if t.OnPlayButtonPressed != nil {
+			t.OnPlayButtonPressed(t.game.Slug)
 		}
 	}
-	widget.joinButton.OnTapped = func() {
-		if widget.OnJoinButtonPressed != nil {
-			widget.OnJoinButtonPressed(widget.game.Slug)
+	t.joinButton.OnTapped = func() {
+		if t.OnJoinButtonPressed != nil {
+			t.OnJoinButtonPressed(t.game.Slug)
 		}
 	}
-	widget.serverButton.OnTapped = func() {
-		if widget.OnServerButtonPressed != nil {
-			widget.OnServerButtonPressed(widget.game.Slug)
+	t.serverButton.OnTapped = func() {
+		if t.OnServerButtonPressed != nil {
+			t.OnServerButtonPressed(t.game.Slug)
 		}
 	}
-	widget.downloadButton.OnTapped = func() {
-		if widget.OnDownloadButtonPressed != nil {
-			widget.OnDownloadButtonPressed(widget.game.Slug)
+	t.downloadButton.OnTapped = func() {
+		if t.OnDownloadButtonPressed != nil {
+			t.OnDownloadButtonPressed(t.game.Slug)
 		}
 	}
-	widget.openButton.OnTapped = func() {
-		if widget.OnOpenButtonPressed != nil {
-			widget.OnOpenButtonPressed(widget.game.Slug)
+	t.openButton.OnTapped = func() {
+		if t.OnOpenButtonPressed != nil {
+			t.OnOpenButtonPressed(t.game.Slug)
+		}
+	}
+	t.extensionBadge.OnTapped = func() {
+		if t.OnExtensionBadgePressed != nil {
+			t.OnExtensionBadgePressed(t.game.Slug)
 		}
 	}
 
 	game.AddChangeListener(func() {
-		widget.Refresh()
+		t.Refresh()
 	})
 
-	widget.ExtendBaseWidget(widget)
+	t.ExtendBaseWidget(t)
 
-	return widget
+	return t
 }
 
 func (widget *GameTile) Refresh() {
@@ -137,6 +146,20 @@ func (widget *GameTile) Refresh() {
 	widget.openButton.Refresh()
 	widget.downloadButton.Refresh()
 	widget.progressBar.Refresh()
+
+	extensionsVisible, _ := widget.game.ExtensionsVisible.Get()
+	hasNewExtensions, _ := widget.game.HasNewExtensions.Get()
+	if extensionsVisible {
+		widget.extensionBadge.Show()
+		if hasNewExtensions {
+			widget.extensionBadge.SetIcon(theme.ExtensionNewIcon())
+		} else {
+			widget.extensionBadge.SetIcon(theme.ExtensionUpToDateIcon())
+		}
+	} else {
+		widget.extensionBadge.Hide()
+	}
+	widget.extensionBadge.Refresh()
 
 	widget.BaseWidget.Refresh()
 }
@@ -243,10 +266,15 @@ func newGameTileRenderer(tile *GameTile) *gameTileRenderer {
 
 	renderer.nameSizeContainer = container.NewWithoutLayout(renderer.name, renderer.blobSizeText)
 
+	badgeSize := float32(20)
+	renderer.widget.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
+	renderer.widget.extensionBadge.Hide()
+
 	renderer.objects = []fyne.CanvasObject{
 		renderer.background,
 		renderer.icon,
 		renderer.nameSizeContainer,
+		renderer.widget.extensionBadge,
 		renderer.statusBackground,
 		renderer.statusText,
 		renderer.progressFrontText,
@@ -289,6 +317,7 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 	statusBgHeight := statusTextSize.Height + 2*statusPadding
 	statusX := size.Width - statusBgWidth - padding
 	statusY := padding
+	nameRowWidth := statusX - iconRight
 	renderer.statusBackground.Resize(fyne.NewSize(statusBgWidth, statusBgHeight))
 	renderer.statusBackground.Move(fyne.NewPos(statusX, statusY))
 	renderer.statusText.Move(fyne.NewPos(statusX+statusPadding, statusY+statusPadding))
@@ -329,10 +358,20 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 		renderer.progressFrontText.Move(fyne.NewPos(iconRight, progressTextY))
 
 		containerY = (iconTop + progressTextY - containerHeight) / 2
+		extensionsVisible, _ := renderer.widget.game.ExtensionsVisible.Get()
+		badgeSize := float32(20)
+		nameWidth := progressBarColumnWidth
+		if extensionsVisible {
+			nameTextWidth := fyne.MeasureText(renderer.name.Text, renderer.name.TextSize, renderer.name.TextStyle).Width
+			nameDisplayWidth := min(nameTextWidth, nameRowWidth-badgeSize-padding*0.5)
+			nameWidth = nameDisplayWidth
+			renderer.widget.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
+			renderer.widget.extensionBadge.Move(fyne.NewPos(iconRight+nameDisplayWidth+padding*0.5, containerY+(nameHeight-badgeSize)/2))
+		}
 		renderer.nameSizeContainer.Move(fyne.NewPos(iconRight, containerY))
 		renderer.nameSizeContainer.Resize(fyne.NewSize(progressBarColumnWidth, containerHeight))
 
-		renderer.name.Resize(fyne.NewSize(progressBarColumnWidth, nameHeight))
+		renderer.name.Resize(fyne.NewSize(nameWidth, nameHeight))
 		renderer.name.Move(fyne.NewPos(0, 0))
 		renderer.blobSizeText.Resize(fyne.NewSize(progressBarColumnWidth, blobSizeHeight))
 		renderer.blobSizeText.Move(fyne.NewPos(0, nameHeight))
@@ -349,7 +388,18 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 		renderer.nameSizeContainer.Move(fyne.NewPos(iconRight, containerY))
 		renderer.nameSizeContainer.Resize(fyne.NewSize(containerWidth, containerHeight))
 
-		renderer.name.Resize(fyne.NewSize(containerWidth, nameHeight))
+		extensionsVisible, _ := renderer.widget.game.ExtensionsVisible.Get()
+		badgeSize := float32(20)
+		nameWidth := containerWidth
+		if extensionsVisible {
+			nameTextWidth := fyne.MeasureText(renderer.name.Text, renderer.name.TextSize, renderer.name.TextStyle).Width
+			nameDisplayWidth := min(nameTextWidth, nameRowWidth-badgeSize-padding*0.5)
+			nameWidth = nameDisplayWidth
+			renderer.widget.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
+			renderer.widget.extensionBadge.Move(fyne.NewPos(iconRight+nameDisplayWidth+padding*0.5, containerY+(nameHeight-badgeSize)/2))
+		}
+
+		renderer.name.Resize(fyne.NewSize(nameWidth, nameHeight))
 		renderer.name.Move(fyne.NewPos(0, 0))
 		renderer.blobSizeText.Resize(fyne.NewSize(containerWidth, blobSizeHeight))
 		renderer.blobSizeText.Move(fyne.NewPos(0, nameHeight))

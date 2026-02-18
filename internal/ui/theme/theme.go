@@ -51,6 +51,10 @@ func DownloadIcon() fyne.Resource {
 	return fynetheme.DownloadIcon()
 }
 
+func UploadIcon() fyne.Resource {
+	return fynetheme.UploadIcon()
+}
+
 func StorageIcon() fyne.Resource {
 	return fynetheme.StorageIcon()
 }
@@ -61,6 +65,14 @@ func CancelIcon() fyne.Resource {
 
 func ContentCopyIcon() fyne.Resource {
 	return fynetheme.ContentCopyIcon()
+}
+
+func ExtensionUpToDateIcon() fyne.Resource {
+	return fynetheme.ConfirmIcon()
+}
+
+func ExtensionNewIcon() fyne.Resource {
+	return fynetheme.ViewRefreshIcon()
 }
 
 const (

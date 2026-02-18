@@ -80,6 +80,7 @@ func main() {
 	gameCatalogRepo := gamerepository.NewInMemoryCatalogRepository()
 	userCatalogRepo := userrepository.NewInMemoryCatalogRepository()
 	gameInstallationRepo := gamerepository.NewInMemoryInstallationRepository()
+	gameExtensionRepo := gamerepository.NewInMemoryExtensionRepository()
 	gameInstallationDetector := detector.NewGameInstallationDetector(gamedirectory)
 	diskSpaceProvider := detector.NewDiskSpaceProvider(gamedirectory)
 	archiveExtractor := archive.NewZipExtractor(gamedirectory)
@@ -91,6 +92,8 @@ func main() {
 	gameInstallationService := gameappsrv.NewInstallationService(bus, gameInstallationRepo, gameCatalogRepo, gameMockAPIClient, archiveExtractor, gameInstallationDetector)
 	gameDirectoryOpener := gameappsrv.NewGameDirectoryOpener(gamedirectory, gameInstallationRepo, explorerOpener)
 	gameLauncherService := gameappsrv.NewLauncherService(gamedirectory, gameInstallationRepo, commandLauncher, gameMockAPIClient)
+	gameExtensionMock := apiadapter.NewGameExtensionMock()
+	extensionService := gameappsrv.NewExtensionService(bus, gameExtensionRepo, gameInstallationRepo, gamedirectory, gameExtensionMock, gameExtensionMock, gameExtensionMock)
 	diskSpaceChangeDetector := systemappsrv.NewDiskSpaceChangeDetector(bus, DiskSpaceChangeDetectionThresholdBytes, diskSpaceProvider)
 	userCatalogRefreshService := userappsrv.NewUserCatalogRefreshService(bus, userMockAPIClient, userCatalogRepo)
 	settingsUpdateService := settingsappsrv.NewUpdateService(
@@ -114,6 +117,7 @@ func main() {
 
 	joinUserAdapter := adapter.NewJoinUserAdapter(application.Window, userCatalogRepo)
 	hostConfigAdapter := adapter.NewHostConfigAdapter(application.Window)
+	extensionsAdapter := adapter.NewExtensionsAdapter(application.Window)
 
 	gameController := gamecontroller.NewGameController(
 		gameCatalogRepo,
@@ -128,6 +132,9 @@ func main() {
 		gameLauncherService,
 		hostConfigAdapter,
 		gameMockAPIClient,
+		extensionService,
+		extensionsAdapter,
+		gamedirectory,
 	)
 	userController := usercontroller.NewUserController(userCatalogRepo)
 	settingsController, _ := settingcontroller.NewSettingsController(settingsUpdateService, fileSettingsStore)
@@ -142,6 +149,8 @@ func main() {
 	bus.Subscribe(gameevent.InstallationFailedEvent, gameController.OnInstallationFailed)
 	bus.Subscribe(gameevent.InstallationDetectedEvent, gameController.OnInstallationDetected)
 	bus.Subscribe(gameevent.InstallationRemovedEvent, gameController.OnInstallationRemoved)
+	bus.Subscribe(gameevent.ExtensionListRefreshedEvent, gameController.OnExtensionListRefreshed)
+	bus.Subscribe(gameevent.ExtensionDownloadedEvent, gameController.OnExtensionDownloaded)
 	bus.Subscribe(systemevent.DiskSpaceChangedEvent, gameController.OnDiskSpaceChanged)
 
 	bus.Subscribe(userevent.CatalogAddedEvent, userController.OnUserAdded)

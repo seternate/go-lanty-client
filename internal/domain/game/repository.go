@@ -12,3 +12,8 @@ type GameInstallationRepository interface {
 	Store(installation GameInstallation) error
 	Remove(slug string) error
 }
+
+type GameExtensionRepository interface {
+	ListByGameSlug(slug string) ([]Extension, error)
+	Store(ext Extension) error
+}

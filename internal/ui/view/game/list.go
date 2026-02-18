@@ -15,11 +15,12 @@ type GameList struct {
 	tilesContainer *fyne.Container
 	tiles          map[string]*GameTile
 
-	OnPlayButtonPressed     func(slug string)
-	OnJoinButtonPressed     func(slug string)
-	OnServerButtonPressed   func(slug string)
-	OnDownloadButtonPressed func(slug string)
-	OnOpenButtonPressed     func(slug string)
+	OnPlayButtonPressed       func(slug string)
+	OnJoinButtonPressed       func(slug string)
+	OnServerButtonPressed     func(slug string)
+	OnDownloadButtonPressed   func(slug string)
+	OnOpenButtonPressed       func(slug string)
+	OnExtensionBadgePressed   func(slug string)
 }
 
 func NewGameList(games *model.GameListModel) *GameList {
@@ -55,33 +56,38 @@ func (view *GameList) RefreshGameTiles() {
 	}
 
 	for _, game := range games {
-		if _, found := view.tiles[game.Slug]; found {
-			continue
+		if _, found := view.tiles[game.Slug]; !found {
+			view.tiles[game.Slug] = NewGameTile(game)
 		}
-		view.tiles[game.Slug] = NewGameTile(game)
-		view.tiles[game.Slug].OnPlayButtonPressed = func(slug string) {
+		tile := view.tiles[game.Slug]
+		tile.OnPlayButtonPressed = func(slug string) {
 			if view.OnPlayButtonPressed != nil {
 				view.OnPlayButtonPressed(slug)
 			}
 		}
-		view.tiles[game.Slug].OnJoinButtonPressed = func(slug string) {
+		tile.OnJoinButtonPressed = func(slug string) {
 			if view.OnJoinButtonPressed != nil {
 				view.OnJoinButtonPressed(slug)
 			}
 		}
-		view.tiles[game.Slug].OnServerButtonPressed = func(slug string) {
+		tile.OnServerButtonPressed = func(slug string) {
 			if view.OnServerButtonPressed != nil {
 				view.OnServerButtonPressed(slug)
 			}
 		}
-		view.tiles[game.Slug].OnDownloadButtonPressed = func(slug string) {
+		tile.OnDownloadButtonPressed = func(slug string) {
 			if view.OnDownloadButtonPressed != nil {
 				view.OnDownloadButtonPressed(slug)
 			}
 		}
-		view.tiles[game.Slug].OnOpenButtonPressed = func(slug string) {
+		tile.OnOpenButtonPressed = func(slug string) {
 			if view.OnOpenButtonPressed != nil {
 				view.OnOpenButtonPressed(slug)
+			}
+		}
+		tile.OnExtensionBadgePressed = func(slug string) {
+			if view.OnExtensionBadgePressed != nil {
+				view.OnExtensionBadgePressed(slug)
 			}
 		}
 	}

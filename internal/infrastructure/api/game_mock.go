@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 )
 
 const alternatingSlug = "z-alternating"
+const extensionMockGameSlug = "installed-game" // game that has mock extensions for UI testing
 
 var _ gameappsrv.GameCatalogSource = (*gameMockAPIClient)(nil)
 var _ gameappsrv.BlobDownloader = (*gameMockAPIClient)(nil)
@@ -522,4 +524,59 @@ func makeIcon(r, g, b uint8) image.Image {
 	c := color.RGBA{R: r, G: g, B: b, A: 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: c}, image.Pt(0, 0), draw.Src)
 	return img
+}
+
+// gameExtensionMock implements extension service interfaces without conflicting with gameMockAPIClient.Download.
+var _ gameappsrv.ExtensionListProvider = (*gameExtensionMock)(nil)
+var _ gameappsrv.ExtensionUploader = (*gameExtensionMock)(nil)
+var _ gameappsrv.ExtensionDownloader = (*gameExtensionMock)(nil)
+
+type gameExtensionMock struct {
+	gameExtensions map[string][]game.Extension
+	mu             sync.RWMutex
+}
+
+func NewGameExtensionMock() *gameExtensionMock {
+	mock := &gameExtensionMock{
+		gameExtensions: make(map[string][]game.Extension),
+	}
+	mock.gameExtensions[extensionMockGameSlug] = []game.Extension{
+		game.NewExtension(extensionMockGameSlug, "custom_maps_v2.vpk", "Custom Maps Pack", 15728640, true),
+		game.NewExtension(extensionMockGameSlug, "sound_overhaul.vpk", "Sound Overhaul", 8388608, false),
+		game.NewExtension(extensionMockGameSlug, "ui_skins.vpk", "UI Skins", 2097152, true),
+	}
+	return mock
+}
+
+func (m *gameExtensionMock) ListForGame(ctx context.Context, slug string) ([]game.Extension, error) {
+	if slug != extensionMockGameSlug {
+		return nil, nil
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	extensions, ok := m.gameExtensions[slug]
+	if !ok {
+		return nil, nil
+	}
+	return slices.Clone(extensions), nil
+}
+
+func (m *gameExtensionMock) Upload(ctx context.Context, slug string, localFilePath string) error {
+	return nil
+}
+
+func (m *gameExtensionMock) Download(ctx context.Context, slug string, filename string, destDir string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	extensions, ok := m.gameExtensions[slug]
+	if !ok {
+		return errors.New("game not found")
+	}
+	for _, ext := range extensions {
+		if ext.Filename == filename {
+			ext.MarkDownloaded()
+			return nil
+		}
+	}
+	return errors.New("extension not found")
 }

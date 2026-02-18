@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"math"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -50,6 +51,10 @@ type HostConfigAdapter interface {
 	ShowHostConfig(gamename string, configFields []model.HostConfigField, onSubmit func(values []gameapp.ArgInput))
 }
 
+type ExtensionsAdapter interface {
+	ShowExtensions(gameName, gameSlug, installPath string, extensions *model.ExtensionListModel, onUpload func(localPath string), onDownload func(ext *model.ExtensionModel))
+}
+
 type GameController struct {
 	GameListModel  *model.GameListModel
 	GameStatsModel *model.GameStatsModel
@@ -66,6 +71,9 @@ type GameController struct {
 	hostConfigAdapter         HostConfigAdapter
 	launcherService           gameappsrv.GameLauncherService
 	launchSpecReader          GameLauncherSpecReader
+	extensionService          gameappsrv.ExtensionService
+	extensionsAdapter         ExtensionsAdapter
+	installationRoot          string
 	mu                        sync.RWMutex
 }
 
@@ -82,6 +90,9 @@ func NewGameController(
 	launcherService gameappsrv.GameLauncherService,
 	hostConfigAdapter HostConfigAdapter,
 	launchSpecReader GameLauncherSpecReader,
+	extensionService gameappsrv.ExtensionService,
+	extensionsAdapter ExtensionsAdapter,
+	installationRoot string,
 ) *GameController {
 	return &GameController{
 		GameListModel:             model.NewGameListModel(),
@@ -98,6 +109,9 @@ func NewGameController(
 		launcherService:           launcherService,
 		hostConfigAdapter:         hostConfigAdapter,
 		launchSpecReader:          launchSpecReader,
+		extensionService:         extensionService,
+		extensionsAdapter:         extensionsAdapter,
+		installationRoot:         installationRoot,
 	}
 }
 
@@ -525,6 +539,30 @@ func (controller *GameController) OnInstallationRemoved(e gameevent.Installation
 	controller.updateStats(len(catalog), installedGames, freeDiskSpace)
 }
 
+func (controller *GameController) OnExtensionListRefreshed(e gameevent.ExtensionEvent) {
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+
+	tile := controller.GameListModel.GetGameBySlug(e.Slug)
+	if tile == nil {
+		return
+	}
+	hasNew, _ := controller.extensionService.HasNewExtensions(context.Background(), e.Slug)
+	tile.SetHasNewExtensions(hasNew)
+}
+
+func (controller *GameController) OnExtensionDownloaded(e gameevent.ExtensionEvent) {
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+
+	tile := controller.GameListModel.GetGameBySlug(e.Slug)
+	if tile == nil {
+		return
+	}
+	hasNew, _ := controller.extensionService.HasNewExtensions(context.Background(), e.Slug)
+	tile.SetHasNewExtensions(hasNew)
+}
+
 func (controller *GameController) OnDiskSpaceChanged(e systemevent.DiskSpaceEvent) {
 	controller.mu.Lock()
 	defer controller.mu.Unlock()
@@ -590,6 +628,11 @@ func (controller *GameController) updateGameModel(gamemodel *model.GameTileModel
 	} else {
 		gamemodel.MarkInstallationAsRemoved()
 	}
+
+	visible, _ := controller.extensionService.ExtensionsVisible(catalogItem.Slug)
+	gamemodel.SetExtensionsVisible(visible)
+	hasNew, _ := controller.extensionService.HasNewExtensions(context.Background(), catalogItem.Slug)
+	gamemodel.SetHasNewExtensions(hasNew)
 }
 
 func (controller *GameController) updateStats(availableGames int, installedGames int, freeDiskSpace uint64) {
@@ -689,4 +732,40 @@ func (controller *GameController) DownloadGame(slug string) {
 
 func (controller *GameController) OpenGame(slug string) {
 	controller.directoryOpener.OpenDirectory(slug)
+}
+
+func (controller *GameController) OpenExtensions(slug string) {
+	visible, err := controller.extensionService.ExtensionsVisible(slug)
+	if err != nil || !visible {
+		return
+	}
+	catalogItem, err := controller.catalogReader.GetBySlug(slug)
+	if err != nil {
+		return
+	}
+	installation, err := controller.installationReader.GetBySlug(slug)
+	if err != nil || !installation.IsInstalled() {
+		return
+	}
+	installPath, _ := filepath.Abs(filepath.Join(controller.installationRoot, installation.InstallationDirectoryRelative))
+
+	ctx := context.Background()
+	listModel := model.NewExtensionListModel()
+	extensions, err := controller.extensionService.ListExtensions(ctx, slug)
+	if err != nil {
+		return
+	}
+	for _, ext := range extensions {
+		listModel.AddExtension(model.NewExtensionModel(ext.Filename, ext.Name, ext.Size, ext.Downloaded))
+	}
+
+	onUpload := func(localPath string) {
+		_ = controller.extensionService.UploadExtension(context.Background(), slug, localPath)
+	}
+	onDownload := func(ext *model.ExtensionModel) {
+		if err := controller.extensionService.DownloadExtension(context.Background(), slug, ext.Filename); err == nil {
+			ext.SetDownloaded(true)
+		}
+	}
+	controller.extensionsAdapter.ShowExtensions(catalogItem.Name, slug, installPath, listModel, onUpload, onDownload)
 }
