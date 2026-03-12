@@ -10,15 +10,15 @@ import (
 	"github.com/seternate/go-lanty-client/internal/game"
 )
 
-var _ game.ProcessLauncher = (*ProcessLaunch)(nil)
+var _ game.ProcessLauncher = (*ProcessLauncher)(nil)
 
-type ProcessLaunch struct{}
+type ProcessLauncher struct{}
 
-func NewProcessLaunch() *ProcessLaunch {
-	return &ProcessLaunch{}
+func NewProcessLauncher() *ProcessLauncher {
+	return &ProcessLauncher{}
 }
 
-func (launcher *ProcessLaunch) Launch(ctx context.Context, executable string, args []string, workingDir string) error {
+func (launcher *ProcessLauncher) Launch(ctx context.Context, executable string, args []string, workingDir string) error {
 	if filepath.Ext(executable) == ".bat" {
 		args = append([]string{"/c", "start", "cmd.exe", "/k", executable}, args...)
 		executable = "cmd.exe"

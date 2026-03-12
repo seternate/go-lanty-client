@@ -20,7 +20,7 @@ type InstallationProgressEmitter struct {
 	mu       sync.RWMutex
 }
 
-func NewGameInstallationProgressEmitter(bus eventbus.Bus, downloads InstallationProgressProvider, extractions InstallationProgressProvider) *InstallationProgressEmitter {
+func NewInstallationProgressEmitter(bus eventbus.Bus, downloads InstallationProgressProvider, extractions InstallationProgressProvider) *InstallationProgressEmitter {
 	return &InstallationProgressEmitter{
 		bus:         bus,
 		downloads:   downloads,

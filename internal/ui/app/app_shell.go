@@ -1,5 +1,76 @@
 package app
 
+import (
+	"fmt"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"github.com/rs/zerolog/log"
+	"github.com/seternate/go-lanty-client/internal/network"
+	gameview "github.com/seternate/go-lanty-client/internal/ui/view/game"
+	"github.com/seternate/go-lanty-client/internal/ui/view/sidebar"
+)
+
+type AppShell struct {
+	window fyne.Window
+
+	icon    fyne.Resource
+	version string
+
+	contentScreen *fyne.Container
+	gameScreen    fyne.CanvasObject
+}
+
+func NewAppShell(name string, icon fyne.Resource, version string) *AppShell {
+	fyneApp := app.NewWithID("com.seternate.lanty")
+
+	window := fyneApp.NewWindow(appTitle(name))
+	window.SetPadded(false)
+	window.Resize(fyne.NewSize(1024, 600))
+
+	if icon != nil {
+		window.SetIcon(icon)
+	}
+
+	contentScreen := container.NewStack()
+	sidebarView := sidebar.NewSidebar(icon, version)
+	mainScreen := container.NewBorder(nil, nil, sidebarView, nil, contentScreen)
+	window.SetContent(mainScreen)
+
+	appShell := &AppShell{
+		window:        window,
+		icon:          icon,
+		version:       version,
+		contentScreen: contentScreen,
+	}
+
+	return appShell
+}
+
+func (appShell *AppShell) SetGameTile(gameTile *gameview.GameTile) {
+	appShell.gameScreen = gameTile
+	appShell.contentScreen.Objects = []fyne.CanvasObject{container.NewVBox(appShell.gameScreen)}
+	appShell.contentScreen.Refresh()
+}
+
+func (appShell *AppShell) ShowAndRun() {
+	appShell.window.ShowAndRun()
+}
+
+func (appShell *AppShell) Quit() {
+	fyne.CurrentApp().Quit()
+}
+
+func appTitle(name string) string {
+	ip, err := network.GetOutboundIP()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get outbound IP for app title")
+		return name
+	}
+	return fmt.Sprintf("%s - %s", name, ip.String())
+}
+
 // import (
 // 	"fmt"
 

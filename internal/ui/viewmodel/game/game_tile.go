@@ -1,9 +1,13 @@
 package gameviewmodel
 
 import (
+	"context"
+	"fmt"
+	"image"
+
 	"fyne.io/fyne/v2/data/binding"
+	"github.com/dustin/go-humanize"
 	"github.com/seternate/go-lanty-client/internal/game"
-	"github.com/seternate/go-lanty-client/internal/ui/theme"
 )
 
 type Status string
@@ -17,6 +21,10 @@ const (
 	StatusError        Status = "Error"
 )
 
+type IconFetcher interface {
+	FetchIcon(ctx context.Context, slug string) (image.Image, error)
+}
+
 // type JoinMultiplayerNavigator interface {
 // 	OpenUserSelection(name string, onSelected func(ipAddress string))
 // }
@@ -26,61 +34,90 @@ const (
 // }
 
 type GameTile struct {
-	Slug                       string
-	Name                       binding.String
-	Icon                       binding.Untyped
-	InstalledFileSize          binding.String
-	InstallationDetected       binding.Bool
-	SupportsJoiningMultiplayer binding.Bool
-	SupportsHostingServer      binding.Bool
+	slug string
 
-	IsProgressing     binding.Bool
-	Progress          binding.Float
-	ProgressFrontText binding.String
-	ProgressEndText   binding.String
-	StatusText        binding.String
-	StatusColor       binding.Untyped
+	icon              binding.Untyped
+	name              binding.String
+	installedFileSize binding.String
 
-	HasNewExtensions  binding.Bool
-	ExtensionsVisible binding.Bool
+	statusText  binding.String
+	statusColor binding.Untyped
 
+	showProgressIndicator binding.Bool
+	Progress              binding.Float
+	progressFrontText     binding.String
+	progressEndText       binding.String
+
+	enableSingleplayerButton    binding.Bool
+	enableJoinMultiplayerButton binding.Bool
+	enableHostMultiplayerButton binding.Bool
+	enableOpenInExplorerButton  binding.Bool
+
+	showDownloadStopIcon binding.Bool
+
+	iconFetcher  IconFetcher
 	launchRunner *game.LaunchRunner
 	// joinGameNavigator JoinMultiplayerNavigator
 	// hostGameNavigator HostMultiplayerNavigator
 }
 
-func NewGameTile(slug string, launchRunner *game.LaunchRunner) *GameTile {
+func NewGameTileFromModel(catalogItem game.CatalogItem, installation game.Installation, progress game.InstallationProgress, iconFetcher IconFetcher, launchRunner *game.LaunchRunner) *GameTile {
 	vm := &GameTile{
-		Slug:                       slug,
-		Name:                       binding.NewString(),
-		Icon:                       binding.NewUntyped(),
-		InstalledFileSize:          binding.NewString(),
-		SupportsJoiningMultiplayer: binding.NewBool(),
-		SupportsHostingServer:      binding.NewBool(),
-		InstallationDetected:       binding.NewBool(),
-		IsProgressing:              binding.NewBool(),
-		Progress:                   binding.NewFloat(),
-		ProgressFrontText:          binding.NewString(),
-		ProgressEndText:            binding.NewString(),
-		StatusText:                 binding.NewString(),
-		StatusColor:                binding.NewUntyped(),
-		HasNewExtensions:           binding.NewBool(),
-		ExtensionsVisible:          binding.NewBool(),
-		launchRunner:               launchRunner,
+		slug:         catalogItem.Slug,
+		iconFetcher:  iconFetcher,
+		launchRunner: launchRunner,
 	}
 
-	vm.Name.Set("N/A")
-	vm.InstalledFileSize.Set("N/A GB")
-	vm.SetStatusNotInstalled()
+	vm.UpdateFromModel(catalogItem, installation, progress)
 
 	return vm
+}
+
+func (vm *GameTile) UpdateFromModel(catalogItem game.CatalogItem, installation game.Installation, progress game.InstallationProgress) error {
+	if vm.slug != catalogItem.Slug || vm.slug != installation.Slug || vm.slug != progress.Slug {
+		return fmt.Errorf("slug mismatch")
+	}
+
+	icon, err := vm.iconFetcher.FetchIcon(context.Background(), catalogItem.Slug)
+	if err != nil {
+		return fmt.Errorf("could not fetch icon: %w", err)
+	}
+
+	vm.icon.Set(icon)
+	vm.name.Set(catalogItem.Name)
+	vm.installedFileSize.Set(humanize.Bytes(catalogItem.InstalledFileSize))
+
+	vm.statusText.Set()
+	vm.statusColor.Set()
+
+	vm.showProgressIndicator.Set(installation.IsInstalling())
+	vm.Progress.Set(progress.Progress())
+	if installation.IsDownloading() {
+		vm.progressFrontText.Set(fmt.Sprintf("Downloading... %s / %s", humanize.SIWithDigits(float64(progress.Completed), 2, "B"), humanize.SIWithDigits(float64(progress.Total), 2, "B")))
+		vm.progressEndText.Set(fmt.Sprintf("%s", humanize.SIWithDigits(float64(progress.Speed()), 2, "B/s")))
+	} else if installation.IsExtracting() {
+		vm.progressFrontText.Set(fmt.Sprintf("Extracting... %d / %d Files", progress.Completed, progress.Total))
+		vm.progressEndText.Set(fmt.Sprintf("%d Files/s", progress.Speed()))
+	} else {
+		vm.progressFrontText.Set("")
+		vm.progressEndText.Set("")
+	}
+
+	vm.enableSingleplayerButton.Set(installation.IsIdle() && installation.IsInstalled())
+	vm.enableJoinMultiplayerButton.Set(installation.IsIdle() && installation.IsInstalled() && catalogItem.Capabilities.JoiningMultiplayer)
+	vm.enableHostMultiplayerButton.Set(installation.IsIdle() && installation.IsInstalled() && catalogItem.Capabilities.HostingServer)
+	vm.enableOpenInExplorerButton.Set(installation.IsIdle() && installation.IsInstalled())
+
+	vm.showDownloadStopIcon.Set(installation.IsInstalling())
+
+	return nil
 }
 
 func (vm *GameTile) StartSingleplayer() {
 	// vm.launchRunner.StartSingleplayer(context.Background(), vm.Slug)
 }
 
-func (vm *GameTile) JoinMultiplayer() {
+func (vm *GameTile) OpenUserSelectionToJoinMultiplayer() {
 	// name, err := vm.Name.Get()
 	// if err != nil {
 	// 	return
@@ -91,7 +128,7 @@ func (vm *GameTile) JoinMultiplayer() {
 	// })
 }
 
-func (vm *GameTile) HostMultiplayer() {
+func (vm *GameTile) OpenArgumentConfigurationToHostMultiplayer() {
 	// launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.Slug, game.LaunchSpecModeHost)
 	// if err != nil {
 	// 	return
@@ -110,7 +147,7 @@ func (vm *GameTile) HostMultiplayer() {
 	// })
 }
 
-func (vm *GameTile) DownloadGame(slug string) {
+func (vm *GameTile) StartDownload() {
 	// controller.mu.RLock()
 	// tile := controller.GameListModel.GetGameBySlug(slug)
 	// if tile == nil {
@@ -126,11 +163,11 @@ func (vm *GameTile) DownloadGame(slug string) {
 	// }
 }
 
-func (vm *GameTile) OpenGame(slug string) {
+func (vm *GameTile) OpenDirectoryInExplorer() {
 	// controller.directoryOpener.OpenDirectory(slug)
 }
 
-func (vm *GameTile) OpenExtensions(slug string) {
+func (vm *GameTile) OpenExtensions() {
 	// visible, err := controller.extensionService.ExtensionsVisible(slug)
 	// if err != nil || !visible {
 	// 	return
@@ -166,46 +203,57 @@ func (vm *GameTile) OpenExtensions(slug string) {
 	// controller.extensionsAdapter.ShowExtensions(catalogItem.Name, slug, installPath, listModel, onUpload, onDownload)
 }
 
-// func (model *GameTile) SetName(name string) {
-// 	model.Name.Set(name)
-// }
-
-// func (model *GameTile) SetIcon(icon image.Image) {
-// 	model.Icon.Set(icon)
-// }
-
-// func (model *GameTile) SetInstalledFileSize(installedFileSize uint64) {
-// 	if installedFileSize == 0 {
-// 		return
-// 	}
-// 	model.InstalledFileSize.Set(humanize.Bytes(installedFileSize))
-// }
-
-// func (model *GameTile) SetSupportsJoiningMultiplayer(supportsJoiningMultiplayer bool) {
-// 	model.SupportsJoiningMultiplayer.Set(supportsJoiningMultiplayer)
-// }
-
-// func (model *GameTile) SetSupportsHostingServer(supportsHostingServer bool) {
-// 	model.SupportsHostingServer.Set(supportsHostingServer)
-// }
-
-// func (model *GameTile) UpdateDownloadProgress(totalBytes uint64, downloadedBytes uint64, speed uint64) {
-// 	model.Progress.Set(float64(downloadedBytes) / float64(totalBytes))
-// 	model.ProgressFrontText.Set(fmt.Sprintf("Downloading... %s / %s", humanize.SIWithDigits(float64(downloadedBytes), 2, "B"), humanize.SIWithDigits(float64(totalBytes), 2, "B")))
-// 	model.ProgressEndText.Set(fmt.Sprintf("%s", humanize.SIWithDigits(float64(speed), 2, "B/s")))
-// }
-
-// func (model *GameTile) UpdateExtractingProgress(totalFiles uint64, extractedFiles uint64, speed uint64) {
-// 	model.Progress.Set(float64(extractedFiles) / float64(totalFiles))
-// 	model.ProgressFrontText.Set(fmt.Sprintf("Extracting... %d / %d Files", extractedFiles, totalFiles))
-// 	model.ProgressEndText.Set(fmt.Sprintf("%d Files/s", speed))
-// }
-
-func (vm *GameTile) SetStatusNotInstalled() {
-	vm.StatusText.Set(string(StatusNotInstalled))
-	vm.StatusColor.Set(theme.StatusColor(theme.StatusNotReady))
-	vm.IsProgressing.Set(false)
+func (vm *GameTile) AddChangeListener(fn func()) {
+	l := binding.NewDataListener(fn)
+	vm.Name.AddListener(l)
+	vm.Icon.AddListener(l)
+	vm.InstalledFileSize.AddListener(l)
+	vm.SupportsJoiningMultiplayer.AddListener(l)
+	vm.SupportsHostingServer.AddListener(l)
+	vm.InstallationDetected.AddListener(l)
+	vm.IsProgressing.AddListener(l)
+	vm.Progress.AddListener(l)
+	vm.ProgressFrontText.AddListener(l)
+	vm.ProgressEndText.AddListener(l)
+	vm.StatusText.AddListener(l)
+	vm.StatusColor.AddListener(l)
+	vm.HasNewExtensions.AddListener(l)
+	vm.ExtensionsVisible.AddListener(l)
 }
+
+func (vm *GameTile) GetIcon() image.Image {
+	iv, err := vm.Icon.Get()
+	if err != nil {
+		return nil
+	}
+	if img, ok := iv.(image.Image); ok {
+		return img
+	}
+	return nil
+}
+
+func (vm *GameTile) GetName() string {
+	name, err := vm.Name.Get()
+	if err != nil {
+		return "N/A"
+	}
+	return name
+}
+
+func (vm *GameTile) GetInstalledFileSize() string {
+	installedFileSize, err := vm.InstalledFileSize.Get()
+	if err != nil || installedFileSize == "" {
+		return "N/A GB"
+	}
+
+	return installedFileSize
+}
+
+// func (vm *GameTile) SetStatusNotInstalled() {
+// 	vm.StatusText.Set(string(StatusNotInstalled))
+// 	vm.StatusColor.Set(theme.StatusColor(theme.StatusNotReady))
+// 	vm.IsProgressing.Set(false)
+// }
 
 // func (model *GameTile) SetStatusDownloading() {
 // 	model.StatusText.Set(string(StatusDownloading))

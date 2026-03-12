@@ -11,7 +11,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/seternate/go-lanty-client/internal/ui/theme"
 	gameviewmodel "github.com/seternate/go-lanty-client/internal/ui/viewmodel/game"
-	model "github.com/seternate/go-lanty-client/internal/uix/model/game"
 )
 
 type GameTile struct {
@@ -19,150 +18,137 @@ type GameTile struct {
 
 	game *gameviewmodel.GameTile
 
-	playButton     *widget.Button
-	joinButton     *widget.Button
-	serverButton   *widget.Button
-	downloadButton *widget.Button
-	openButton     *widget.Button
-	progressBar    *widget.ProgressBar
-	extensionBadge *widget.Button
-
-	OnPlayButtonPressed     func(slug string)
-	OnJoinButtonPressed     func(slug string)
-	OnServerButtonPressed   func(slug string)
-	OnDownloadButtonPressed func(slug string)
-	OnOpenButtonPressed     func(slug string)
-	OnExtensionBadgePressed func(slug string)
+	startSingleplayerButton *widget.Button
+	joinMultiplayerButton   *widget.Button
+	hostMultiplayerButton   *widget.Button
+	downloadButton          *widget.Button
+	openInExplorerButton    *widget.Button
+	progressBar             *widget.ProgressBar
+	extensionBadge          *widget.Button
 }
 
 func NewGameTile(game *gameviewmodel.GameTile) *GameTile {
-	t := &GameTile{
-		game:           game,
-		playButton:     widget.NewButtonWithIcon("", theme.MediaPlayIcon(), nil),
-		joinButton:     widget.NewButtonWithIcon("", theme.LoginIcon(), nil),
-		serverButton:   widget.NewButtonWithIcon("", theme.StorageIcon(), nil),
-		downloadButton: widget.NewButtonWithIcon("", theme.DownloadIcon(), nil),
-		openButton:     widget.NewButtonWithIcon("", theme.FolderIcon(), nil),
-		progressBar:    widget.NewProgressBar(),
-		extensionBadge: widget.NewButtonWithIcon("", theme.ExtensionUpToDateIcon(), nil),
+	view := &GameTile{
+		game:                    game,
+		startSingleplayerButton: widget.NewButtonWithIcon("", theme.MediaPlayIcon(), nil),
+		joinMultiplayerButton:   widget.NewButtonWithIcon("", theme.LoginIcon(), nil),
+		hostMultiplayerButton:   widget.NewButtonWithIcon("", theme.StorageIcon(), nil),
+		downloadButton:          widget.NewButtonWithIcon("", theme.DownloadIcon(), nil),
+		openInExplorerButton:    widget.NewButtonWithIcon("", theme.FolderIcon(), nil),
+		progressBar:             widget.NewProgressBar(),
+		extensionBadge:          widget.NewButtonWithIcon("", theme.ExtensionUpToDateIcon(), nil),
 	}
-	t.extensionBadge.Importance = widget.LowImportance
 
-	t.progressBar.TextFormatter = func() string {
+	view.progressBar.TextFormatter = func() string {
 		return ""
 	}
-	t.progressBar.Bind(game.Progress)
+	view.progressBar.Bind(game.Progress)
 
-	t.playButton.Disable()
-	t.joinButton.Disable()
-	t.serverButton.Disable()
+	view.startSingleplayerButton.Disable()
+	view.joinMultiplayerButton.Disable()
+	view.hostMultiplayerButton.Disable()
+	view.extensionBadge.Importance = widget.LowImportance
 
-	t.playButton.OnTapped = func() {
-		if t.OnPlayButtonPressed != nil {
-			t.OnPlayButtonPressed(t.game.Slug)
-		}
+	view.startSingleplayerButton.OnTapped = func() {
+		game.StartSingleplayer()
 	}
-	t.joinButton.OnTapped = func() {
-		if t.OnJoinButtonPressed != nil {
-			t.OnJoinButtonPressed(t.game.Slug)
-		}
+	view.joinMultiplayerButton.OnTapped = func() {
+		game.OpenUserSelectionToJoinMultiplayer()
 	}
-	t.serverButton.OnTapped = func() {
-		if t.OnServerButtonPressed != nil {
-			t.OnServerButtonPressed(t.game.Slug)
-		}
+	view.hostMultiplayerButton.OnTapped = func() {
+		game.OpenArgumentConfigurationToHostMultiplayer()
 	}
-	t.downloadButton.OnTapped = func() {
-		if t.OnDownloadButtonPressed != nil {
-			t.OnDownloadButtonPressed(t.game.Slug)
-		}
+	view.downloadButton.OnTapped = func() {
+		game.StartDownload()
 	}
-	t.openButton.OnTapped = func() {
-		if t.OnOpenButtonPressed != nil {
-			t.OnOpenButtonPressed(t.game.Slug)
-		}
+	view.openInExplorerButton.OnTapped = func() {
+		game.OpenDirectoryInExplorer()
 	}
-	t.extensionBadge.OnTapped = func() {
-		if t.OnExtensionBadgePressed != nil {
-			t.OnExtensionBadgePressed(t.game.Slug)
-		}
+	view.extensionBadge.OnTapped = func() {
+		// game.OpenExtensions()
+		// TODO
 	}
 
-	// game.AddChangeListener(func() {
-	// 	t.Refresh()
-	// })
+	game.AddChangeListener(func() {
+		view.Refresh()
+	})
 
-	t.ExtendBaseWidget(t)
+	view.ExtendBaseWidget(view)
 
-	return t
+	return view
 }
 
-func (widget *GameTile) Refresh() {
-	statusText, err := widget.game.StatusText.Get()
+func (view *GameTile) Refresh() {
+	statusText, err := view.game.StatusText.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile status text")
 	}
-	supportsJoiningMultiplayer, err := widget.game.SupportsJoiningMultiplayer.Get()
+	supportsJoiningMultiplayer, err := view.game.SupportsJoiningMultiplayer.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile supports joining multiplayer")
 	}
-	supportsHostingServer, err := widget.game.SupportsHostingServer.Get()
+	supportsHostingServer, err := view.game.SupportsHostingServer.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile supports hosting server")
 	}
-
-	installationDetected, err := widget.game.InstallationDetected.Get()
+	installationDetected, err := view.game.InstallationDetected.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile installation detected")
 	}
 
-	if statusText == string(model.StatusInstalled) || (statusText == string(model.StatusCanceled) && installationDetected) {
-		widget.playButton.Enable()
+	if statusText == string(gameviewmodel.StatusInstalled) || (statusText == string(gameviewmodel.StatusCanceled) && installationDetected) {
+		view.startSingleplayerButton.Enable()
 		if supportsJoiningMultiplayer {
-			widget.joinButton.Enable()
+			view.joinMultiplayerButton.Enable()
 		} else {
-			widget.joinButton.Disable()
+			view.joinMultiplayerButton.Disable()
 		}
 		if supportsHostingServer {
-			widget.serverButton.Enable()
+			view.hostMultiplayerButton.Enable()
 		} else {
-			widget.serverButton.Disable()
+			view.hostMultiplayerButton.Disable()
 		}
 	} else {
-		widget.playButton.Disable()
-		widget.joinButton.Disable()
-		widget.serverButton.Disable()
+		view.startSingleplayerButton.Disable()
+		view.joinMultiplayerButton.Disable()
+		view.hostMultiplayerButton.Disable()
 
 	}
 
 	if installationDetected {
-		widget.openButton.Enable()
+		view.openInExplorerButton.Enable()
 	} else {
-		widget.openButton.Disable()
+		view.openInExplorerButton.Disable()
 	}
 
-	widget.playButton.Refresh()
-	widget.joinButton.Refresh()
-	widget.serverButton.Refresh()
-	widget.openButton.Refresh()
-	widget.downloadButton.Refresh()
-	widget.progressBar.Refresh()
-
-	extensionsVisible, _ := widget.game.ExtensionsVisible.Get()
-	hasNewExtensions, _ := widget.game.HasNewExtensions.Get()
+	extensionsVisible, err := view.game.ExtensionsVisible.Get()
+	if err != nil {
+		log.Error().Err(err).Msg("could not get game tile extensions visible")
+	}
+	hasNewExtensions, err := view.game.HasNewExtensions.Get()
+	if err != nil {
+		log.Error().Err(err).Msg("could not get game tile has new extensions")
+	}
 	if extensionsVisible {
-		widget.extensionBadge.Show()
+		view.extensionBadge.Show()
 		if hasNewExtensions {
-			widget.extensionBadge.SetIcon(theme.ExtensionNewIcon())
+			view.extensionBadge.SetIcon(theme.ExtensionNewIcon())
 		} else {
-			widget.extensionBadge.SetIcon(theme.ExtensionUpToDateIcon())
+			view.extensionBadge.SetIcon(theme.ExtensionUpToDateIcon())
 		}
 	} else {
-		widget.extensionBadge.Hide()
+		view.extensionBadge.Hide()
 	}
-	widget.extensionBadge.Refresh()
 
-	widget.BaseWidget.Refresh()
+	view.startSingleplayerButton.Refresh()
+	view.joinMultiplayerButton.Refresh()
+	view.hostMultiplayerButton.Refresh()
+	view.openInExplorerButton.Refresh()
+	view.downloadButton.Refresh()
+	view.progressBar.Refresh()
+	view.extensionBadge.Refresh()
+
+	view.BaseWidget.Refresh()
 }
 
 func (widget *GameTile) CreateRenderer() fyne.WidgetRenderer {
@@ -170,51 +156,46 @@ func (widget *GameTile) CreateRenderer() fyne.WidgetRenderer {
 }
 
 type gameTileRenderer struct {
-	widget *GameTile
-
-	background        *canvas.Rectangle
-	icon              *canvas.Image
-	name              *canvas.Text
-	statusBackground  *canvas.Rectangle
-	statusText        *canvas.Text
-	progressFrontText *canvas.Text
-	progressEndText   *canvas.Text
-	blobSizeText      *canvas.Text
+	view *GameTile
 
 	nameSizeContainer *fyne.Container
+
+	background *canvas.Rectangle
+
+	icon                  *canvas.Image
+	name                  *canvas.Text
+	installedFileSizeText *canvas.Text
+
+	statusBackground *canvas.Rectangle
+	statusText       *canvas.Text
+
+	progressFrontText *canvas.Text
+	progressEndText   *canvas.Text
 
 	iconratio float32
 
 	objects []fyne.CanvasObject
 }
 
-func newGameTileRenderer(tile *GameTile) *gameTileRenderer {
+func newGameTileRenderer(view *GameTile) *gameTileRenderer {
 	renderer := &gameTileRenderer{
-		widget:    tile,
-		iconratio: 1.0,
+		view: view,
 	}
 
 	renderer.background = canvas.NewRectangle(theme.BackgroundColor2())
 	renderer.background.CornerRadius = theme.CornerRadius()
 
-	iv, err := tile.game.Icon.Get()
-	if err != nil {
-		log.Error().Err(err).Msg("could not get game tile icon")
-	}
-	if img, ok := iv.(image.Image); ok {
-		renderer.icon = canvas.NewImageFromImage(img)
-		renderer.icon.FillMode = canvas.ImageFillContain
-		renderer.iconratio = float32(img.Bounds().Max.X) / float32(img.Bounds().Max.Y)
-	}
+	renderer.icon = canvas.NewImageFromImage(view.game.GetIcon())
+	renderer.icon.FillMode = canvas.ImageFillContain
+	renderer.iconratio = float32(view.game.GetIcon().Bounds().Max.X) / float32(view.game.GetIcon().Bounds().Max.Y)
 
-	nameText, err := tile.game.Name.Get()
-	if err != nil {
-		log.Error().Err(err).Msg("could not get game tile name")
-	}
-	renderer.name = canvas.NewText(nameText, color.White)
+	renderer.name = canvas.NewText(view.game.GetName(), color.White)
 	renderer.name.TextSize = theme.TextSize()
 
-	statusColor, err := tile.game.StatusColor.Get()
+	renderer.installedFileSizeText = canvas.NewText(view.game.GetInstalledFileSize(), color.RGBA{150, 150, 150, 255})
+	renderer.installedFileSizeText.TextSize = theme.TextSize() * 0.8
+
+	statusColor, err := view.game.StatusColor.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile status color")
 	}
@@ -223,69 +204,62 @@ func newGameTileRenderer(tile *GameTile) *gameTileRenderer {
 		renderer.statusBackground.CornerRadius = theme.SmallCornerRadius()
 	}
 
-	statusText, err := tile.game.StatusText.Get()
+	statusText, err := view.game.StatusText.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile status text")
 	}
 	renderer.statusText = canvas.NewText(statusText, color.White)
 	renderer.statusText.TextSize = theme.TextSize() * 0.9
 
-	progressFrontText, err := tile.game.ProgressFrontText.Get()
+	progressFrontText, err := view.game.ProgressFrontText.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile progress front text")
 	}
 	renderer.progressFrontText = canvas.NewText(progressFrontText, color.RGBA{180, 180, 180, 255})
 	renderer.progressFrontText.TextSize = theme.TextSize() * 0.85
 
-	progressEndText, err := tile.game.ProgressEndText.Get()
+	progressEndText, err := view.game.ProgressEndText.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile progress end text")
 	}
 	renderer.progressEndText = canvas.NewText(progressEndText, color.RGBA{180, 180, 180, 255})
 	renderer.progressEndText.TextSize = theme.TextSize() * 0.85
 
-	blobSizeText, err := tile.game.InstalledFileSize.Get()
-	if err != nil {
-		log.Error().Err(err).Msg("could not get game tile blob size text")
-	}
-	renderer.blobSizeText = canvas.NewText(blobSizeText, color.RGBA{150, 150, 150, 255})
-	renderer.blobSizeText.TextSize = theme.TextSize() * 0.8
-
 	buttonHeight := float32(40)
 	buttonWidth := buttonHeight * 2
 	buttonSize := fyne.NewSize(buttonWidth, buttonHeight)
 
 	for _, btn := range []*widget.Button{
-		renderer.widget.playButton,
-		renderer.widget.joinButton,
-		renderer.widget.serverButton,
-		renderer.widget.openButton,
-		renderer.widget.downloadButton,
+		renderer.view.startSingleplayerButton,
+		renderer.view.joinMultiplayerButton,
+		renderer.view.hostMultiplayerButton,
+		renderer.view.openInExplorerButton,
+		renderer.view.downloadButton,
 	} {
 		btn.Resize(buttonSize)
 	}
 
-	renderer.nameSizeContainer = container.NewWithoutLayout(renderer.name, renderer.blobSizeText)
+	renderer.nameSizeContainer = container.NewWithoutLayout(renderer.name, renderer.installedFileSizeText)
 
 	badgeSize := float32(20)
-	renderer.widget.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
-	renderer.widget.extensionBadge.Hide()
+	renderer.view.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
+	renderer.view.extensionBadge.Hide()
 
 	renderer.objects = []fyne.CanvasObject{
 		renderer.background,
 		renderer.icon,
 		renderer.nameSizeContainer,
-		renderer.widget.extensionBadge,
+		renderer.view.extensionBadge,
 		renderer.statusBackground,
 		renderer.statusText,
 		renderer.progressFrontText,
 		renderer.progressEndText,
-		renderer.widget.playButton,
-		renderer.widget.joinButton,
-		renderer.widget.serverButton,
-		renderer.widget.openButton,
-		renderer.widget.downloadButton,
-		renderer.widget.progressBar,
+		renderer.view.startSingleplayerButton,
+		renderer.view.joinMultiplayerButton,
+		renderer.view.hostMultiplayerButton,
+		renderer.view.openInExplorerButton,
+		renderer.view.downloadButton,
+		renderer.view.progressBar,
 	}
 
 	return renderer
@@ -299,7 +273,7 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 	renderer.background.Resize(size)
 
 	padding := theme.InnerPadding()
-	buttonHeight := float32(40)
+	buttonHeight := float32(32)
 	buttonSpacing := padding / 2
 
 	iconHeight := float32(64)
@@ -308,7 +282,7 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 	renderer.icon.Move(fyne.NewPos(padding, padding))
 	iconRight := padding + iconWidth + padding
 
-	statusText, err := renderer.widget.game.StatusText.Get()
+	statusText, err := renderer.view.game.StatusText.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile status text")
 	}
@@ -323,7 +297,7 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 	renderer.statusBackground.Move(fyne.NewPos(statusX, statusY))
 	renderer.statusText.Move(fyne.NewPos(statusX+statusPadding, statusY+statusPadding))
 
-	isProgressing, err := renderer.widget.game.IsProgressing.Get()
+	isProgressing, err := renderer.view.game.IsProgressing.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile is progressing")
 	}
@@ -336,11 +310,11 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 	textSpacing := padding * 0.4
 
 	nameHeight := fyne.MeasureText(renderer.name.Text, renderer.name.TextSize, renderer.name.TextStyle).Height
-	blobSizeText, err := renderer.widget.game.InstalledFileSize.Get()
+	blobSizeText, err := renderer.view.game.InstalledFileSize.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile blob size text")
 	}
-	blobSizeHeight := fyne.MeasureText(blobSizeText, renderer.blobSizeText.TextSize, renderer.blobSizeText.TextStyle).Height
+	blobSizeHeight := fyne.MeasureText(blobSizeText, renderer.installedFileSizeText.TextSize, renderer.installedFileSizeText.TextStyle).Height
 	containerHeight := nameHeight + blobSizeHeight
 
 	var progressBarColumnX float32
@@ -359,55 +333,55 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 		renderer.progressFrontText.Move(fyne.NewPos(iconRight, progressTextY))
 
 		containerY = (iconTop + progressTextY - containerHeight) / 2
-		extensionsVisible, _ := renderer.widget.game.ExtensionsVisible.Get()
+		extensionsVisible, _ := renderer.view.game.ExtensionsVisible.Get()
 		badgeSize := float32(20)
 		nameWidth := progressBarColumnWidth
 		if extensionsVisible {
 			nameTextWidth := fyne.MeasureText(renderer.name.Text, renderer.name.TextSize, renderer.name.TextStyle).Width
 			nameDisplayWidth := min(nameTextWidth, nameRowWidth-badgeSize-padding*0.5)
 			nameWidth = nameDisplayWidth
-			renderer.widget.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
-			renderer.widget.extensionBadge.Move(fyne.NewPos(iconRight+nameDisplayWidth+padding*0.5, containerY+(nameHeight-badgeSize)/2))
+			renderer.view.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
+			renderer.view.extensionBadge.Move(fyne.NewPos(iconRight+nameDisplayWidth+padding*0.5, containerY+(nameHeight-badgeSize)/2))
 		}
 		renderer.nameSizeContainer.Move(fyne.NewPos(iconRight, containerY))
 		renderer.nameSizeContainer.Resize(fyne.NewSize(progressBarColumnWidth, containerHeight))
 
 		renderer.name.Resize(fyne.NewSize(nameWidth, nameHeight))
 		renderer.name.Move(fyne.NewPos(0, 0))
-		renderer.blobSizeText.Resize(fyne.NewSize(progressBarColumnWidth, blobSizeHeight))
-		renderer.blobSizeText.Move(fyne.NewPos(0, nameHeight))
+		renderer.installedFileSizeText.Resize(fyne.NewSize(progressBarColumnWidth, blobSizeHeight))
+		renderer.installedFileSizeText.Move(fyne.NewPos(0, nameHeight))
 
-		endText, _ := renderer.widget.game.ProgressEndText.Get()
+		endText, _ := renderer.view.game.ProgressEndText.Get()
 		endTextSize := fyne.MeasureText(endText, renderer.progressEndText.TextSize, renderer.progressEndText.TextStyle)
 		renderer.progressEndText.Move(fyne.NewPos(progressBarColumnX+progressBarColumnWidth-endTextSize.Width, progressTextY))
 
-		renderer.widget.progressBar.Resize(fyne.NewSize(progressBarColumnWidth, progressBarHeight))
-		renderer.widget.progressBar.Move(fyne.NewPos(progressBarColumnX, progressBarY))
+		renderer.view.progressBar.Resize(fyne.NewSize(progressBarColumnWidth, progressBarHeight))
+		renderer.view.progressBar.Move(fyne.NewPos(progressBarColumnX, progressBarY))
 	} else {
 		containerY = iconCenter - containerHeight/2
 		containerWidth := size.Width - iconRight - padding
 		renderer.nameSizeContainer.Move(fyne.NewPos(iconRight, containerY))
 		renderer.nameSizeContainer.Resize(fyne.NewSize(containerWidth, containerHeight))
 
-		extensionsVisible, _ := renderer.widget.game.ExtensionsVisible.Get()
+		extensionsVisible, _ := renderer.view.game.ExtensionsVisible.Get()
 		badgeSize := float32(20)
 		nameWidth := containerWidth
 		if extensionsVisible {
 			nameTextWidth := fyne.MeasureText(renderer.name.Text, renderer.name.TextSize, renderer.name.TextStyle).Width
 			nameDisplayWidth := min(nameTextWidth, nameRowWidth-badgeSize-padding*0.5)
 			nameWidth = nameDisplayWidth
-			renderer.widget.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
-			renderer.widget.extensionBadge.Move(fyne.NewPos(iconRight+nameDisplayWidth+padding*0.5, containerY+(nameHeight-badgeSize)/2))
+			renderer.view.extensionBadge.Resize(fyne.NewSize(badgeSize, badgeSize))
+			renderer.view.extensionBadge.Move(fyne.NewPos(iconRight+nameDisplayWidth+padding*0.5, containerY+(nameHeight-badgeSize)/2))
 		}
 
 		renderer.name.Resize(fyne.NewSize(nameWidth, nameHeight))
 		renderer.name.Move(fyne.NewPos(0, 0))
-		renderer.blobSizeText.Resize(fyne.NewSize(containerWidth, blobSizeHeight))
-		renderer.blobSizeText.Move(fyne.NewPos(0, nameHeight))
+		renderer.installedFileSizeText.Resize(fyne.NewSize(containerWidth, blobSizeHeight))
+		renderer.installedFileSizeText.Move(fyne.NewPos(0, nameHeight))
 
 		renderer.progressFrontText.Hide()
 		renderer.progressEndText.Hide()
-		renderer.widget.progressBar.Hide()
+		renderer.view.progressBar.Hide()
 	}
 
 	var buttonY float32
@@ -417,29 +391,29 @@ func (renderer *gameTileRenderer) Layout(size fyne.Size) {
 	buttonY = iconBottom + padding
 	buttonStartX = padding
 
-	renderer.widget.playButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
-	renderer.widget.playButton.Move(fyne.NewPos(buttonStartX, buttonY))
+	renderer.view.startSingleplayerButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
+	renderer.view.startSingleplayerButton.Move(fyne.NewPos(buttonStartX, buttonY))
 
 	x := buttonStartX + buttonWidth + buttonSpacing
-	renderer.widget.joinButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
-	renderer.widget.joinButton.Move(fyne.NewPos(x, buttonY))
+	renderer.view.joinMultiplayerButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
+	renderer.view.joinMultiplayerButton.Move(fyne.NewPos(x, buttonY))
 	x += buttonWidth + buttonSpacing
 
-	renderer.widget.serverButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
-	renderer.widget.serverButton.Move(fyne.NewPos(x, buttonY))
+	renderer.view.hostMultiplayerButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
+	renderer.view.hostMultiplayerButton.Move(fyne.NewPos(x, buttonY))
 	x += buttonWidth + buttonSpacing
 
-	renderer.widget.downloadButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
-	renderer.widget.downloadButton.Move(fyne.NewPos(x, buttonY))
+	renderer.view.downloadButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
+	renderer.view.downloadButton.Move(fyne.NewPos(x, buttonY))
 	x += buttonWidth + buttonSpacing
 
-	renderer.widget.openButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
-	renderer.widget.openButton.Move(fyne.NewPos(x, buttonY))
+	renderer.view.openInExplorerButton.Resize(fyne.NewSize(buttonWidth, buttonHeight))
+	renderer.view.openInExplorerButton.Move(fyne.NewPos(x, buttonY))
 }
 
 func (renderer *gameTileRenderer) MinSize() fyne.Size {
 	padding := theme.InnerPadding()
-	buttonHeight := float32(40)
+	buttonHeight := float32(32)
 	buttonSpacing := padding / 2
 
 	iconHeight := float32(64)
@@ -457,7 +431,7 @@ func (renderer *gameTileRenderer) MinSize() fyne.Size {
 }
 
 func (renderer *gameTileRenderer) Refresh() {
-	if iconVal, err := renderer.widget.game.Icon.Get(); err == nil {
+	if iconVal, err := renderer.view.game.Icon.Get(); err == nil {
 		if img, ok := iconVal.(image.Image); ok && img != nil {
 			renderer.icon.Image = img
 			renderer.iconratio = float32(img.Bounds().Max.X) / float32(img.Bounds().Max.Y)
@@ -466,13 +440,13 @@ func (renderer *gameTileRenderer) Refresh() {
 		log.Error().Err(err).Msg("could not get game tile icon")
 	}
 
-	if name, err := renderer.widget.game.Name.Get(); err == nil {
+	if name, err := renderer.view.game.Name.Get(); err == nil {
 		renderer.name.Text = name
 	} else {
 		log.Error().Err(err).Msg("could not get game tile name")
 	}
 
-	statusColor, err := renderer.widget.game.StatusColor.Get()
+	statusColor, err := renderer.view.game.StatusColor.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile status color")
 	}
@@ -485,49 +459,49 @@ func (renderer *gameTileRenderer) Refresh() {
 		}
 	}
 
-	statusText, err := renderer.widget.game.StatusText.Get()
+	statusText, err := renderer.view.game.StatusText.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile status text")
 	}
 	renderer.statusText.Text = statusText
 
-	progressFrontText, err := renderer.widget.game.ProgressFrontText.Get()
+	progressFrontText, err := renderer.view.game.ProgressFrontText.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile progress front text")
 	}
 	renderer.progressFrontText.Text = progressFrontText
 
-	progressEndText, err := renderer.widget.game.ProgressEndText.Get()
+	progressEndText, err := renderer.view.game.ProgressEndText.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile progress end text")
 	}
 	renderer.progressEndText.Text = progressEndText
 
-	blobSizeText, err := renderer.widget.game.InstalledFileSize.Get()
+	blobSizeText, err := renderer.view.game.InstalledFileSize.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile blob size text")
 	}
-	renderer.blobSizeText.Text = blobSizeText
+	renderer.installedFileSizeText.Text = blobSizeText
 
-	isProgressing, err := renderer.widget.game.IsProgressing.Get()
+	isProgressing, err := renderer.view.game.IsProgressing.Get()
 	if err != nil {
 		log.Error().Err(err).Msg("could not get game tile is progressing")
 	}
 
 	if isProgressing {
-		renderer.widget.downloadButton.SetIcon(theme.CancelIcon())
+		renderer.view.downloadButton.SetIcon(theme.CancelIcon())
 	} else {
-		renderer.widget.downloadButton.SetIcon(theme.DownloadIcon())
+		renderer.view.downloadButton.SetIcon(theme.DownloadIcon())
 	}
 
 	if isProgressing {
 		renderer.progressFrontText.Show()
-		renderer.widget.progressBar.Show()
+		renderer.view.progressBar.Show()
 		renderer.progressEndText.Show()
 	} else {
 		renderer.progressFrontText.Hide()
 		renderer.progressEndText.Hide()
-		renderer.widget.progressBar.Hide()
+		renderer.view.progressBar.Hide()
 	}
 
 	renderer.background.Refresh()
@@ -537,7 +511,7 @@ func (renderer *gameTileRenderer) Refresh() {
 	renderer.statusText.Refresh()
 	renderer.progressFrontText.Refresh()
 	renderer.progressEndText.Refresh()
-	renderer.blobSizeText.Refresh()
+	renderer.installedFileSizeText.Refresh()
 	renderer.nameSizeContainer.Refresh()
 }
 

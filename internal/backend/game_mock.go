@@ -1,4 +1,4 @@
-package api
+package backend
 
 import (
 	"context"
@@ -14,49 +14,37 @@ import (
 	"sync"
 	"time"
 
-	gameapp "github.com/seternate/go-lanty-client/internal/application/game"
-	gameappsrv "github.com/seternate/go-lanty-client/internal/application/game/service"
-	"github.com/seternate/go-lanty-client/internal/domain/game"
-	gamecontroller "github.com/seternate/go-lanty-client/internal/ui/controller/game"
+	"github.com/seternate/go-lanty-client/internal/game"
 )
 
 const alternatingSlug = "z-alternating"
 const extensionMockGameSlug = "installed-game" // game that has mock extensions for UI testing
 
-var _ gameappsrv.GameCatalogSource = (*gameMockAPIClient)(nil)
-var _ gameappsrv.BlobDownloader = (*gameMockAPIClient)(nil)
-var _ gameappsrv.GameInstallationProgressFetcher = (*gameMockAPIClient)(nil)
-var _ gamecontroller.CatalogIconFetcher = (*gameMockAPIClient)(nil)
-var _ gameappsrv.LaunchSpecSource = (*gameMockAPIClient)(nil)
-var _ gamecontroller.GameLauncherSpecReader = (*gameMockAPIClient)(nil)
-
 type gameMockAPIClient struct {
 	mu                 sync.RWMutex
-	catalog            map[string]game.GameCatalogItem
+	catalog            map[string]game.CatalogItem
 	icons              map[string]image.Image
 	order              []string
 	alternatingPresent bool
-	DownloadPath       string
-	progress           map[string]gameapp.InstallationProgress
+	progress           map[string]game.InstallationProgress
 }
 
-func NewGameMockAPIClient(path string) *gameMockAPIClient {
+func NewGameMockAPIClient() *gameMockAPIClient {
 	client := &gameMockAPIClient{
-		catalog:      make(map[string]game.GameCatalogItem),
-		icons:        make(map[string]image.Image),
-		progress:     make(map[string]gameapp.InstallationProgress),
-		DownloadPath: path,
+		catalog:  make(map[string]game.CatalogItem),
+		icons:    make(map[string]image.Image),
+		progress: make(map[string]game.InstallationProgress),
 	}
 	client.seedCatalog()
 	return client
 }
 
-func (client *gameMockAPIClient) FetchCatalog() ([]game.GameCatalogItem, error) {
+func (client *gameMockAPIClient) FetchCatalog(ctx context.Context) ([]game.CatalogItem, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	client.toggleAlternatingGameLocked()
 
-	out := make([]game.GameCatalogItem, 0, len(client.order))
+	out := make([]game.CatalogItem, 0, len(client.order))
 	for _, slug := range client.order {
 		if item, ok := client.catalog[slug]; ok {
 			out = append(out, item)
@@ -75,21 +63,18 @@ func (client *gameMockAPIClient) GetIcon(slug string) (image.Image, error) {
 	return icon, nil
 }
 
-func (client *gameMockAPIClient) Download(ctx context.Context, slug string) (filePath string, err error) {
-	client.mu.RLock()
-	downloadPath := client.DownloadPath
-	client.mu.RUnlock()
-	if downloadPath == "" {
-		downloadPath = "."
+func (client *gameMockAPIClient) Download(ctx context.Context, slug string, baseDir string) (filePath string, err error) {
+	if baseDir == "" {
+		baseDir = "."
 	}
 
-	err = os.MkdirAll(downloadPath, 0755)
+	err = os.MkdirAll(baseDir, 0755)
 	if err != nil {
 		return "", err
 	}
 
 	sourcePath := filepath.Join(".", slug+"-mock.zip")
-	destPath := filepath.Join(downloadPath, slug+".zip")
+	destPath := filepath.Join(baseDir, slug+".zip")
 
 	src, err := os.Open(sourcePath)
 	if err != nil {
@@ -109,7 +94,7 @@ func (client *gameMockAPIClient) Download(ctx context.Context, slug string) (fil
 	defer dst.Close()
 
 	client.mu.Lock()
-	client.progress[slug] = gameapp.InstallationProgress{
+	client.progress[slug] = game.InstallationProgress{
 		Slug:      slug,
 		Total:     uint64(info.Size()),
 		Completed: 0,
@@ -191,42 +176,41 @@ func (client *gameMockAPIClient) Download(ctx context.Context, slug string) (fil
 	return destPath, nil
 }
 
-func (client *gameMockAPIClient) GetAllProgress() (map[string]gameapp.InstallationProgress, error) {
+func (client *gameMockAPIClient) GetAllInstallationProgresses(ctx context.Context) (map[string]game.InstallationProgress, error) {
 	client.mu.RLock()
 	defer client.mu.RUnlock()
 
 	return maps.Clone(client.progress), nil
 }
 
-func (client *gameMockAPIClient) GetProgress(slug string) (gameapp.InstallationProgress, error) {
+func (client *gameMockAPIClient) GetProgress(slug string) (game.InstallationProgress, error) {
 	client.mu.RLock()
 	defer client.mu.RUnlock()
 
 	progress, ok := client.progress[slug]
 	if !ok {
-		return gameapp.InstallationProgress{}, errors.New("progress not found")
+		return game.InstallationProgress{}, errors.New("progress not found")
 	}
 
 	return progress, nil
 }
 
-func (client *gameMockAPIClient) GetLaunchSpec(slug string, mode gameappsrv.LaunchSpecMode) (game.GameLaunchSpec, error) {
+func (client *gameMockAPIClient) GetLaunchSpec(ctx context.Context, slug string, mode game.LaunchSpecMode) (game.LaunchSpec, error) {
 	switch mode {
-	case gameappsrv.LaunchSpecModePlay:
-		return client.getSingleplayerLaunchSpec()
-	case gameappsrv.LaunchSpecModeJoin:
-		return client.getJoinLaunchSpec()
-	case gameappsrv.LaunchSpecModeHost:
-		return client.getHostLaunchSpec()
-
+	case game.LaunchSpecModePlay:
+		return client.getSingleplayerLaunchSpec(ctx)
+	case game.LaunchSpecModeJoin:
+		return client.getJoinLaunchSpec(ctx)
+	case game.LaunchSpecModeHost:
+		return client.getHostLaunchSpec(ctx)
 	}
-	return game.GameLaunchSpec{}, errors.New("invalid launch spec mode")
+	return game.LaunchSpec{}, errors.New("invalid launch spec mode")
 }
 
-func (client *gameMockAPIClient) getSingleplayerLaunchSpec() (game.GameLaunchSpec, error) {
-	nointroParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamFlag,
+func (client *gameMockAPIClient) getSingleplayerLaunchSpec(ctx context.Context) (game.LaunchSpec, error) {
+	nointroParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamFlag,
 			Name:              "No Intro",
 			Description:       "Whether to skip the intro",
 			Argument:          "-novid",
@@ -234,12 +218,12 @@ func (client *gameMockAPIClient) getSingleplayerLaunchSpec() (game.GameLaunchSpe
 			ArgumentSeparator: " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	consoleParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamFlag,
+	consoleParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamFlag,
 			Name:              "Console",
 			Description:       "Whether to open the console",
 			Argument:          "-console",
@@ -247,12 +231,12 @@ func (client *gameMockAPIClient) getSingleplayerLaunchSpec() (game.GameLaunchSpe
 			ArgumentSeparator: " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	netgraphParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamEnum,
+	netgraphParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamEnum,
 			Name:              "Netgraph",
 			Description:       "Whether to show the netgraph",
 			Argument:          "+net_graph",
@@ -263,25 +247,25 @@ func (client *gameMockAPIClient) getSingleplayerLaunchSpec() (game.GameLaunchSpe
 			ValueSeparator:    " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	spec, err := game.NewGameLaunchSpec("left4dead.exe", []game.GameLaunchParam{
+	spec, err := game.NewLaunchSpec("left4dead.exe", []game.LaunchParam{
 		*nointroParam,
 		*consoleParam,
 		*netgraphParam,
 	})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
 	return *spec, nil
 }
 
-func (client *gameMockAPIClient) getJoinLaunchSpec() (game.GameLaunchSpec, error) {
-	connectParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamString,
+func (client *gameMockAPIClient) getJoinLaunchSpec(ctx context.Context) (game.LaunchSpec, error) {
+	connectParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamString,
 			Name:              "Connect",
 			Description:       "The address to connect to",
 			Argument:          "+connect",
@@ -292,12 +276,12 @@ func (client *gameMockAPIClient) getJoinLaunchSpec() (game.GameLaunchSpec, error
 			ValueSeparator:    " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	nointroParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamFlag,
+	nointroParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamFlag,
 			Name:              "No Intro",
 			Description:       "Whether to skip the intro",
 			Argument:          "-novid",
@@ -305,12 +289,12 @@ func (client *gameMockAPIClient) getJoinLaunchSpec() (game.GameLaunchSpec, error
 			ArgumentSeparator: " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	consoleParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamFlag,
+	consoleParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamFlag,
 			Name:              "Console",
 			Description:       "Whether to open the console",
 			Argument:          "-console",
@@ -318,12 +302,12 @@ func (client *gameMockAPIClient) getJoinLaunchSpec() (game.GameLaunchSpec, error
 			ArgumentSeparator: " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	netgraphParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamEnum,
+	netgraphParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamEnum,
 			Name:              "Netgraph",
 			Description:       "Whether to show the netgraph",
 			Argument:          "+net_graph",
@@ -334,23 +318,23 @@ func (client *gameMockAPIClient) getJoinLaunchSpec() (game.GameLaunchSpec, error
 			ValueSeparator:    " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	spec, err := game.NewGameLaunchSpec("left4dead.exe", []game.GameLaunchParam{
+	spec, err := game.NewLaunchSpec("left4dead.exe", []game.LaunchParam{
 		*connectParam,
 		*nointroParam,
 		*consoleParam,
 		*netgraphParam,
 	})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
 	return *spec, nil
 }
 
-func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error) {
+func (client *gameMockAPIClient) getHostLaunchSpec(ctx context.Context) (game.LaunchSpec, error) {
 	minint := int64(2)
 	maxint := int64(64)
 
@@ -359,9 +343,9 @@ func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error
 
 	floatprecision := int64(10)
 
-	serverbaseParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamFlag,
+	serverbaseParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamFlag,
 			Name:              "Server Base",
 			Description:       "The server base to use",
 			Argument:          "-serverbase",
@@ -370,12 +354,12 @@ func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error
 			ArgumentSeparator: " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	nointroParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamFlag,
+	nointroParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamFlag,
 			Name:              "No Intro",
 			Description:       "Whether to skip the intro",
 			Argument:          "-novid",
@@ -383,12 +367,12 @@ func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error
 			ArgumentSeparator: " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	mapParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamEnum,
+	mapParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamEnum,
 			Name:              "Map",
 			Description:       "The map to play",
 			Argument:          "",
@@ -400,12 +384,12 @@ func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error
 			ValueSeparator:    " ",
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	maxPlayersParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamInt,
+	maxPlayersParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamInt,
 			Name:              "Max Players",
 			Description:       "The maximum number of players",
 			Argument:          "+maxplayers",
@@ -418,12 +402,12 @@ func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error
 			MaxInt:            &maxint,
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	gravityParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:              game.GameLaunchParamFloat,
+	gravityParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:              game.LaunchParamFloat,
 			Name:              "Gravity Multiplier",
 			Description:       "The gravity multiplier",
 			Argument:          "+gravity",
@@ -436,12 +420,12 @@ func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error
 			FloatPrecision:    &floatprecision,
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	friendlyFireParam, err := game.NewGameLaunchParam(
-		game.GameLaunchParamInput{
-			Type:        game.GameLaunchParamEnum,
+	friendlyFireParam, err := game.NewLaunchParam(
+		game.LaunchParamInput{
+			Type:        game.LaunchParamEnum,
 			Name:        "Friendly Fire",
 			Description: "Whether friendly fire is enabled",
 			Argument:    "+friendlyfire",
@@ -449,10 +433,10 @@ func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error
 			EnumValues:  []game.EnumValueOption{{Value: "false", Label: "Disable"}, {Value: "true", Label: "Enable"}},
 		})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
-	spec, err := game.NewGameLaunchSpec("unrealtournament.exe", []game.GameLaunchParam{
+	spec, err := game.NewLaunchSpec("unrealtournament.exe", []game.LaunchParam{
 		*serverbaseParam,
 		*nointroParam,
 		*mapParam,
@@ -461,7 +445,7 @@ func (client *gameMockAPIClient) getHostLaunchSpec() (game.GameLaunchSpec, error
 		*friendlyFireParam,
 	})
 	if err != nil {
-		return game.GameLaunchSpec{}, err
+		return game.LaunchSpec{}, err
 	}
 
 	return *spec, nil
@@ -487,15 +471,17 @@ func (c *gameMockAPIClient) addCatalogItem(slug, name string, icon image.Image, 
 	if _, exists := c.icons[slug]; !exists {
 		c.icons[slug] = icon
 	}
-	c.catalog[slug] = game.NewGameCatalogItem(
-		slug,
-		name,
-		"mock-icon-"+slug,
-		blobSize,
-		slug+".exe",
-		supportsJoiningMultiplayer,
-		supportsHostingServer,
-	)
+	c.catalog[slug] = game.CatalogItem{
+		Slug:              slug,
+		Name:              name,
+		IconHash:          "mock-icon-" + slug,
+		InstalledFileSize: blobSize,
+		DetectionHints:    game.InstallationDetectionHints{},
+		Capabilities: game.Capabilities{
+			JoiningMultiplayer: supportsJoiningMultiplayer,
+			HostingServer:      supportsHostingServer,
+		},
+	}
 }
 
 func (c *gameMockAPIClient) toggleAlternatingGameLocked() {
@@ -527,10 +513,6 @@ func makeIcon(r, g, b uint8) image.Image {
 }
 
 // gameExtensionMock implements extension service interfaces without conflicting with gameMockAPIClient.Download.
-var _ gameappsrv.ExtensionListProvider = (*gameExtensionMock)(nil)
-var _ gameappsrv.ExtensionUploader = (*gameExtensionMock)(nil)
-var _ gameappsrv.ExtensionDownloader = (*gameExtensionMock)(nil)
-
 type gameExtensionMock struct {
 	gameExtensions map[string][]game.Extension
 	mu             sync.RWMutex
