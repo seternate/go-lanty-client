@@ -1,117 +1,78 @@
 package gameview
 
-// import (
-// 	"image/color"
+import (
+	"slices"
 
-// 	"fyne.io/fyne/v2"
-// 	"fyne.io/fyne/v2/canvas"
-// 	"fyne.io/fyne/v2/container"
-// 	"fyne.io/fyne/v2/widget"
-// 	"github.com/rs/zerolog/log"
-// 	gamemodel "github.com/seternate/go-lanty-client/internal/ui/model/game"
-// 	"github.com/seternate/go-lanty-client/internal/ui/theme"
-// )
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
+	"github.com/seternate/go-lanty-client/internal/ui/view"
+	gameviewmodel "github.com/seternate/go-lanty-client/internal/ui/viewmodel/game"
+)
 
-// type GameBrowser struct {
-// 	widget.BaseWidget
+type GameScreen struct {
+	widget.BaseWidget
 
-// 	stats *gamemodel.GameStatsModel
+	vm *gameviewmodel.GameScreen
 
-// 	gamelist *GameList
-// }
+	view           *view.HeaderScrollScreen
+	tilesContainer *fyne.Container
+	gametiles      map[string]*GameTile
+}
 
-// func NewGameBrowser(gamelist *GameList, stats *gamemodel.GameStatsModel) *GameBrowser {
-// 	view := &GameBrowser{
-// 		stats:    stats,
-// 		gamelist: gamelist,
-// 	}
+func NewGameScreen(vm *gameviewmodel.GameScreen) *GameScreen {
+	gameContainer := container.NewVBox()
 
-// 	stats.AddChangeListener(func() {
-// 		view.Refresh()
-// 	})
+	view := &GameScreen{
+		vm:             vm,
+		view:           view.NewHeaderScrollScreen(vm.Header, gameContainer),
+		tilesContainer: gameContainer,
+		gametiles:      make(map[string]*GameTile),
+	}
 
-// 	view.ExtendBaseWidget(view)
-// 	return view
-// }
+	vm.AddChangeListener(func() {
+		view.Refresh()
+	})
 
-// func (view *GameBrowser) CreateRenderer() fyne.WidgetRenderer {
-// 	return newGameRenderer(view)
-// }
+	view.ExtendBaseWidget(view)
+	return view
+}
 
-// type gameRenderer struct {
-// 	view            *GameBrowser
-// 	headerContainer *fyne.Container
-// 	headerText      *canvas.Text
-// 	statsText       *canvas.Text
+func (view *GameScreen) Refresh() {
+	view.refreshGameTiles()
 
-// 	objects []fyne.CanvasObject
-// }
+	view.tilesContainer.Refresh()
+	view.view.Refresh()
 
-// func newGameRenderer(view *GameBrowser) *gameRenderer {
-// 	renderer := &gameRenderer{
-// 		view: view,
-// 	}
+	view.BaseWidget.Refresh()
+}
 
-// 	renderer.headerText = canvas.NewText("Games", color.White)
-// 	renderer.headerText.TextSize = 28
-// 	renderer.headerText.TextStyle = fyne.TextStyle{Bold: true}
+func (view *GameScreen) refreshGameTiles() {
+	gametilesvm := view.vm.GetGameTiles()
 
-// 	statsText, err := view.stats.StatsText.Get()
-// 	if err != nil {
-// 		log.Error().Err(err).Msg("could not get game stats text")
-// 	}
-// 	renderer.statsText = canvas.NewText(statsText, color.RGBA{180, 180, 180, 255})
-// 	renderer.statsText.TextSize = theme.TextSize()
+	vmSlugs := make([]string, 0)
+	for _, gametilevm := range gametilesvm {
+		vmSlugs = append(vmSlugs, gametilevm.GetSlug())
+	}
 
-// 	headerPadding := theme.InnerPadding() * 2
+	for viewSlug := range view.gametiles {
+		if !slices.Contains(vmSlugs, viewSlug) {
+			delete(view.gametiles, viewSlug)
+		}
+	}
 
-// 	paddingTop := canvas.NewRectangle(color.Transparent)
-// 	paddingTop.SetMinSize(fyne.NewSize(0, headerPadding))
-// 	paddingBottom := canvas.NewRectangle(color.Transparent)
-// 	paddingBottom.SetMinSize(fyne.NewSize(0, headerPadding))
+	for _, gametilevm := range gametilesvm {
+		if _, found := view.gametiles[gametilevm.GetSlug()]; !found {
+			view.gametiles[gametilevm.GetSlug()] = NewGameTile(gametilevm)
+		}
+	}
 
-// 	paddingLeft := canvas.NewRectangle(color.Transparent)
-// 	paddingLeft.SetMinSize(fyne.NewSize(headerPadding, 0))
-// 	paddingRight := canvas.NewRectangle(color.Transparent)
-// 	paddingRight.SetMinSize(fyne.NewSize(headerPadding, 0))
+	view.tilesContainer.RemoveAll()
+	for _, gametilevm := range gametilesvm {
+		view.tilesContainer.Add(view.gametiles[gametilevm.GetSlug()])
+	}
+}
 
-// 	headerLeft := container.NewBorder(paddingTop, paddingBottom, paddingLeft, nil, container.NewWithoutLayout(renderer.headerText))
-// 	headerRight := container.NewBorder(paddingTop, paddingBottom, nil, paddingRight, container.NewWithoutLayout(renderer.statsText))
-
-// 	renderer.headerContainer = container.NewBorder(nil, nil, headerLeft, headerRight)
-
-// 	renderer.objects = []fyne.CanvasObject{
-// 		container.NewBorder(renderer.headerContainer, nil, nil, nil, renderer.view.gamelist),
-// 	}
-
-// 	return renderer
-// }
-
-// func (r *gameRenderer) Objects() []fyne.CanvasObject {
-// 	return r.objects
-// }
-
-// func (r *gameRenderer) Layout(size fyne.Size) {
-// 	if len(r.objects) > 0 {
-// 		r.objects[0].Resize(size)
-// 		r.objects[0].Move(fyne.NewPos(0, 0))
-// 	}
-// }
-
-// func (r *gameRenderer) MinSize() fyne.Size {
-// 	return fyne.NewSize(0, r.headerContainer.MinSize().Height)
-// }
-
-// func (r *gameRenderer) Refresh() {
-// 	statsText, err := r.view.stats.StatsText.Get()
-// 	if err != nil {
-// 		log.Error().Err(err).Msg("could not get game stats text")
-// 	}
-// 	r.statsText.Text = statsText
-
-// 	r.headerText.Refresh()
-// 	r.statsText.Refresh()
-// 	r.view.gamelist.Refresh()
-// }
-
-// func (r *gameRenderer) Destroy() {}
+func (view *GameScreen) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(view.view)
+}

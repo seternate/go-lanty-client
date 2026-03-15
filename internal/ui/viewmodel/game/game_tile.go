@@ -4,21 +4,14 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/color"
+	"image/draw"
+	"sync"
 
 	"fyne.io/fyne/v2/data/binding"
 	"github.com/dustin/go-humanize"
 	"github.com/seternate/go-lanty-client/internal/game"
-)
-
-type Status string
-
-const (
-	StatusNotInstalled Status = "Not Installed"
-	StatusInstalled    Status = "Installed"
-	StatusDownloading  Status = "Downloading"
-	StatusExtracting   Status = "Extracting"
-	StatusCanceled     Status = "Canceled"
-	StatusError        Status = "Error"
+	"github.com/seternate/go-lanty-client/internal/ui/theme"
 )
 
 type IconFetcher interface {
@@ -32,6 +25,19 @@ type IconFetcher interface {
 // type HostMultiplayerNavigator interface {
 // 	ShowHostArgumentConfigForm(viewmodel *ArgumentConfigForm, onSubmit func(values []game.LaunchArg))
 // }
+
+type GameTileUpdate struct {
+	Icon         image.Image
+	CatalogItem  game.CatalogItem
+	Installation game.Installation
+	Progress     game.InstallationProgress
+}
+
+type GameTileCreate struct {
+	Icon         image.Image
+	CatalogItem  game.CatalogItem
+	Installation game.Installation
+}
 
 type GameTile struct {
 	slug string
@@ -53,68 +59,114 @@ type GameTile struct {
 	enableHostMultiplayerButton binding.Bool
 	enableOpenInExplorerButton  binding.Bool
 
-	showDownloadStopIcon binding.Bool
+	showInstallationStopIcon binding.Bool
+	isInstalling             binding.Bool
 
-	iconFetcher  IconFetcher
 	launchRunner *game.LaunchRunner
 	// joinGameNavigator JoinMultiplayerNavigator
 	// hostGameNavigator HostMultiplayerNavigator
+	installationRunner          *game.InstallationRunner
+	installationDirectoryOpener *game.InstallationDirectoryOpener
+
+	mu sync.RWMutex
 }
 
-func NewGameTileFromModel(catalogItem game.CatalogItem, installation game.Installation, progress game.InstallationProgress, iconFetcher IconFetcher, launchRunner *game.LaunchRunner) *GameTile {
+func NewGameTileFromModel(create GameTileCreate, launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener) (*GameTile, error) {
 	vm := &GameTile{
-		slug:         catalogItem.Slug,
-		iconFetcher:  iconFetcher,
-		launchRunner: launchRunner,
+		slug:                        create.CatalogItem.Slug,
+		icon:                        binding.NewUntyped(),
+		name:                        binding.NewString(),
+		installedFileSize:           binding.NewString(),
+		statusText:                  binding.NewString(),
+		statusColor:                 binding.NewUntyped(),
+		showProgressIndicator:       binding.NewBool(),
+		Progress:                    binding.NewFloat(),
+		progressFrontText:           binding.NewString(),
+		progressEndText:             binding.NewString(),
+		enableSingleplayerButton:    binding.NewBool(),
+		enableJoinMultiplayerButton: binding.NewBool(),
+		enableHostMultiplayerButton: binding.NewBool(),
+		enableOpenInExplorerButton:  binding.NewBool(),
+		showInstallationStopIcon:    binding.NewBool(),
+		isInstalling:                binding.NewBool(),
+		launchRunner:                launchRunner,
+		installationRunner:          installationRunner,
+		installationDirectoryOpener: installationDirectoryOpener,
 	}
 
-	vm.UpdateFromModel(catalogItem, installation, progress)
+	err := vm.UpdateFromModel(GameTileUpdate{
+		Icon:         create.Icon,
+		CatalogItem:  create.CatalogItem,
+		Installation: create.Installation,
+		Progress:     game.InstallationProgress{},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not update game tile from model: %w", err)
+	}
 
-	return vm
+	return vm, nil
 }
 
-func (vm *GameTile) UpdateFromModel(catalogItem game.CatalogItem, installation game.Installation, progress game.InstallationProgress) error {
-	if vm.slug != catalogItem.Slug || vm.slug != installation.Slug || vm.slug != progress.Slug {
-		return fmt.Errorf("slug mismatch")
+func (vm *GameTile) UpdateFromModel(update GameTileUpdate) error {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
+	if vm.slug != update.CatalogItem.Slug || vm.slug != update.Installation.Slug || (update.Progress.Slug != "" && vm.slug != update.Progress.Slug) {
+		return fmt.Errorf("slug mismatch: want %s - got catalog item %s, installation %s, progress %s", vm.slug, update.CatalogItem.Slug, update.Installation.Slug, update.Progress.Slug)
 	}
 
-	icon, err := vm.iconFetcher.FetchIcon(context.Background(), catalogItem.Slug)
-	if err != nil {
-		return fmt.Errorf("could not fetch icon: %w", err)
+	vm.icon.Set(update.Icon)
+	vm.name.Set(update.CatalogItem.Name)
+	vm.installedFileSize.Set(humanize.Bytes(update.CatalogItem.InstalledFileSize))
+
+	if update.Installation.IsDownloading() {
+		vm.statusText.Set("Downloading")
+		vm.statusColor.Set(theme.StatusColor(theme.StatusDownloading))
+	} else if update.Installation.IsExtracting() {
+		vm.statusText.Set("Extracting")
+		vm.statusColor.Set(theme.StatusColor(theme.StatusExtracting))
+	} else if update.Installation.HasFailed() {
+		vm.statusText.Set("Installation failed")
+		vm.statusColor.Set(theme.StatusColor(theme.StatusError))
+	} else if update.Installation.WasCancelled() {
+		vm.statusText.Set("Cancelled")
+		vm.statusColor.Set(theme.StatusColor(theme.StatusCanceled))
+	} else if update.Installation.IsInstalled() {
+		vm.statusText.Set("Installed")
+		vm.statusColor.Set(theme.StatusColor(theme.StatusReady))
+	} else if !update.Installation.IsInstalled() {
+		vm.statusText.Set("Not installed")
+		vm.statusColor.Set(theme.StatusColor(theme.StatusNotReady))
 	}
 
-	vm.icon.Set(icon)
-	vm.name.Set(catalogItem.Name)
-	vm.installedFileSize.Set(humanize.Bytes(catalogItem.InstalledFileSize))
-
-	vm.statusText.Set()
-	vm.statusColor.Set()
-
-	vm.showProgressIndicator.Set(installation.IsInstalling())
-	vm.Progress.Set(progress.Progress())
-	if installation.IsDownloading() {
-		vm.progressFrontText.Set(fmt.Sprintf("Downloading... %s / %s", humanize.SIWithDigits(float64(progress.Completed), 2, "B"), humanize.SIWithDigits(float64(progress.Total), 2, "B")))
-		vm.progressEndText.Set(fmt.Sprintf("%s", humanize.SIWithDigits(float64(progress.Speed()), 2, "B/s")))
-	} else if installation.IsExtracting() {
-		vm.progressFrontText.Set(fmt.Sprintf("Extracting... %d / %d Files", progress.Completed, progress.Total))
-		vm.progressEndText.Set(fmt.Sprintf("%d Files/s", progress.Speed()))
-	} else {
-		vm.progressFrontText.Set("")
-		vm.progressEndText.Set("")
+	vm.showProgressIndicator.Set(update.Installation.IsInstalling())
+	if update.Installation.IsInstalling() {
+		vm.Progress.Set(update.Progress.Progress())
+		if update.Installation.IsDownloading() {
+			vm.progressFrontText.Set(fmt.Sprintf("Downloading... %s / %s", humanize.SIWithDigits(float64(update.Progress.Completed), 2, "B"), humanize.SIWithDigits(float64(update.Progress.Total), 2, "B")))
+			vm.progressEndText.Set(fmt.Sprintf("%s", humanize.SIWithDigits(float64(update.Progress.Speed()), 2, "B/s")))
+		} else if update.Installation.IsExtracting() {
+			vm.progressFrontText.Set(fmt.Sprintf("Extracting... %d / %d Files", update.Progress.Completed, update.Progress.Total))
+			vm.progressEndText.Set(fmt.Sprintf("%d Files/s", update.Progress.Speed()))
+		} else {
+			vm.progressFrontText.Set("")
+			vm.progressEndText.Set("")
+		}
 	}
 
-	vm.enableSingleplayerButton.Set(installation.IsIdle() && installation.IsInstalled())
-	vm.enableJoinMultiplayerButton.Set(installation.IsIdle() && installation.IsInstalled() && catalogItem.Capabilities.JoiningMultiplayer)
-	vm.enableHostMultiplayerButton.Set(installation.IsIdle() && installation.IsInstalled() && catalogItem.Capabilities.HostingServer)
-	vm.enableOpenInExplorerButton.Set(installation.IsIdle() && installation.IsInstalled())
+	vm.enableSingleplayerButton.Set(update.Installation.IsIdle() && update.Installation.IsInstalled() && !update.Installation.HasFailed())
+	vm.enableJoinMultiplayerButton.Set(update.Installation.IsIdle() && update.Installation.IsInstalled() && !update.Installation.HasFailed() && update.CatalogItem.Capabilities.JoiningMultiplayer)
+	vm.enableHostMultiplayerButton.Set(update.Installation.IsIdle() && update.Installation.IsInstalled() && !update.Installation.HasFailed() && update.CatalogItem.Capabilities.HostingServer)
+	vm.enableOpenInExplorerButton.Set(update.Installation.IsInstalled())
 
-	vm.showDownloadStopIcon.Set(installation.IsInstalling())
+	vm.showInstallationStopIcon.Set(update.Installation.IsInstalling())
+	vm.isInstalling.Set(update.Installation.IsInstalling())
 
 	return nil
 }
 
 func (vm *GameTile) StartSingleplayer() {
-	// vm.launchRunner.StartSingleplayer(context.Background(), vm.Slug)
+	vm.launchRunner.StartSingleplayer(context.Background(), vm.slug)
 }
 
 func (vm *GameTile) OpenUserSelectionToJoinMultiplayer() {
@@ -147,101 +199,90 @@ func (vm *GameTile) OpenArgumentConfigurationToHostMultiplayer() {
 	// })
 }
 
-func (vm *GameTile) StartDownload() {
-	// controller.mu.RLock()
-	// tile := controller.GameListModel.GetGameBySlug(slug)
-	// if tile == nil {
-	// 	return
-	// }
-	// isProgressing, _ := tile.IsProgressing.Get()
-	// controller.mu.RUnlock()
+func (vm *GameTile) ToggleInstallation() {
+	vm.mu.RLock()
+	isInstalling, err := vm.isInstalling.Get()
+	if err != nil {
+		return
+	}
+	vm.mu.RUnlock()
 
-	// if isProgressing {
-	// 	controller.installationService.StopInstallation(slug)
-	// } else {
-	// 	controller.installationService.StartInstallation(context.Background(), slug)
-	// }
+	if isInstalling {
+		vm.installationRunner.CancelInstallation(context.Background(), vm.slug)
+	} else {
+		go vm.installationRunner.StartInstallation(context.Background(), vm.slug)
+	}
 }
 
 func (vm *GameTile) OpenDirectoryInExplorer() {
-	// controller.directoryOpener.OpenDirectory(slug)
-}
-
-func (vm *GameTile) OpenExtensions() {
-	// visible, err := controller.extensionService.ExtensionsVisible(slug)
-	// if err != nil || !visible {
-	// 	return
-	// }
-	// catalogItem, err := controller.catalogReader.GetBySlug(slug)
-	// if err != nil {
-	// 	return
-	// }
-	// installation, err := controller.installationReader.GetBySlug(slug)
-	// if err != nil || !installation.IsInstalled() {
-	// 	return
-	// }
-	// installPath, _ := filepath.Abs(filepath.Join(controller.installationRoot, installation.InstallationDirectoryRelative))
-
-	// ctx := context.Background()
-	// listModel := model.NewExtensionListModel()
-	// extensions, err := controller.extensionService.ListExtensions(ctx, slug)
-	// if err != nil {
-	// 	return
-	// }
-	// for _, ext := range extensions {
-	// 	listModel.AddExtension(model.NewExtensionModel(ext.Filename, ext.Name, ext.Size, ext.Downloaded))
-	// }
-
-	// onUpload := func(localPath string) {
-	// 	_ = controller.extensionService.UploadExtension(context.Background(), slug, localPath)
-	// }
-	// onDownload := func(ext *model.ExtensionModel) {
-	// 	if err := controller.extensionService.DownloadExtension(context.Background(), slug, ext.Filename); err == nil {
-	// 		ext.SetDownloaded(true)
-	// 	}
-	// }
-	// controller.extensionsAdapter.ShowExtensions(catalogItem.Name, slug, installPath, listModel, onUpload, onDownload)
+	vm.installationDirectoryOpener.OpenDirectory(context.Background(), vm.slug)
 }
 
 func (vm *GameTile) AddChangeListener(fn func()) {
 	l := binding.NewDataListener(fn)
-	vm.Name.AddListener(l)
-	vm.Icon.AddListener(l)
-	vm.InstalledFileSize.AddListener(l)
-	vm.SupportsJoiningMultiplayer.AddListener(l)
-	vm.SupportsHostingServer.AddListener(l)
-	vm.InstallationDetected.AddListener(l)
-	vm.IsProgressing.AddListener(l)
+
+	vm.icon.AddListener(l)
+	vm.name.AddListener(l)
+	vm.installedFileSize.AddListener(l)
+
+	vm.statusText.AddListener(l)
+	vm.statusColor.AddListener(l)
+
+	vm.showProgressIndicator.AddListener(l)
 	vm.Progress.AddListener(l)
-	vm.ProgressFrontText.AddListener(l)
-	vm.ProgressEndText.AddListener(l)
-	vm.StatusText.AddListener(l)
-	vm.StatusColor.AddListener(l)
-	vm.HasNewExtensions.AddListener(l)
-	vm.ExtensionsVisible.AddListener(l)
+	vm.progressFrontText.AddListener(l)
+	vm.progressEndText.AddListener(l)
+
+	vm.enableSingleplayerButton.AddListener(l)
+	vm.enableJoinMultiplayerButton.AddListener(l)
+	vm.enableHostMultiplayerButton.AddListener(l)
+	vm.enableOpenInExplorerButton.AddListener(l)
+
+	vm.showInstallationStopIcon.AddListener(l)
+	vm.isInstalling.AddListener(l)
+}
+
+func (vm *GameTile) GetSlug() string {
+	return vm.slug
 }
 
 func (vm *GameTile) GetIcon() image.Image {
-	iv, err := vm.Icon.Get()
-	if err != nil {
-		return nil
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	fallbackImage := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	draw.Draw(fallbackImage, fallbackImage.Bounds(), &image.Uniform{C: color.RGBA{R: 255, G: 0, B: 0, A: 255}}, image.Point{}, draw.Src)
+
+	iv, err := vm.icon.Get()
+	if err != nil || iv == nil {
+		return fallbackImage
 	}
-	if img, ok := iv.(image.Image); ok {
-		return img
+
+	img, ok := iv.(image.Image)
+	if !ok {
+		return fallbackImage
 	}
-	return nil
+
+	return img
 }
 
 func (vm *GameTile) GetName() string {
-	name, err := vm.Name.Get()
-	if err != nil {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	name, err := vm.name.Get()
+	if err != nil || name == "" {
 		return "N/A"
 	}
+
 	return name
 }
 
 func (vm *GameTile) GetInstalledFileSize() string {
-	installedFileSize, err := vm.InstalledFileSize.Get()
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	installedFileSize, err := vm.installedFileSize.Get()
 	if err != nil || installedFileSize == "" {
 		return "N/A GB"
 	}
@@ -249,54 +290,129 @@ func (vm *GameTile) GetInstalledFileSize() string {
 	return installedFileSize
 }
 
-// func (vm *GameTile) SetStatusNotInstalled() {
-// 	vm.StatusText.Set(string(StatusNotInstalled))
-// 	vm.StatusColor.Set(theme.StatusColor(theme.StatusNotReady))
-// 	vm.IsProgressing.Set(false)
-// }
+func (vm *GameTile) GetStatusText() string {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
 
-// func (model *GameTile) SetStatusDownloading() {
-// 	model.StatusText.Set(string(StatusDownloading))
-// 	model.StatusColor.Set(theme.StatusColor(theme.StatusDownloading))
-// 	model.IsProgressing.Set(true)
-// }
+	statusText, err := vm.statusText.Get()
+	if err != nil || statusText == "" {
+		return "N/A"
+	}
 
-// func (model *GameTile) SetStatusExtracting() {
-// 	model.StatusText.Set(string(StatusExtracting))
-// 	model.StatusColor.Set(theme.StatusColor(theme.StatusExtracting))
-// 	model.IsProgressing.Set(true)
-// }
+	return statusText
+}
 
-// func (model *GameTile) SetStatusInstalled() {
-// 	model.StatusText.Set(string(StatusInstalled))
-// 	model.StatusColor.Set(theme.StatusColor(theme.StatusReady))
-// 	model.IsProgressing.Set(false)
-// }
+func (vm *GameTile) GetStatusColor() color.Color {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
 
-// func (model *GameTile) SetStatusError() {
-// 	model.StatusText.Set(string(StatusError))
-// 	model.StatusColor.Set(theme.StatusColor(theme.StatusError))
-// 	model.IsProgressing.Set(false)
-// }
+	fallbackColor := color.RGBA{R: 255, G: 0, B: 0, A: 255}
 
-// func (model *GameTile) SetStatusCanceled() {
-// 	model.StatusText.Set(string(StatusCanceled))
-// 	model.StatusColor.Set(theme.StatusColor(theme.StatusCanceled))
-// 	model.IsProgressing.Set(false)
-// }
+	cv, err := vm.statusColor.Get()
+	if err != nil || cv == nil {
+		return fallbackColor
+	}
 
-// func (model *GameTile) MarkInstallationAsDetected() {
-// 	model.InstallationDetected.Set(true)
-// }
+	statusColor, ok := cv.(color.Color)
+	if !ok {
+		return fallbackColor
+	}
 
-// func (model *GameTile) MarkInstallationAsRemoved() {
-// 	model.InstallationDetected.Set(false)
-// }
+	return statusColor
+}
 
-// func (model *GameTile) SetHasNewExtensions(hasNew bool) {
-// 	model.HasNewExtensions.Set(hasNew)
-// }
+func (vm *GameTile) ShowProgressIndicator() bool {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
 
-// func (model *GameTile) SetExtensionsVisible(visible bool) {
-// 	model.ExtensionsVisible.Set(visible)
-// }
+	showProgressIndicator, err := vm.showProgressIndicator.Get()
+	if err != nil {
+		return false
+	}
+
+	return showProgressIndicator
+}
+
+func (vm *GameTile) GetProgressFrontText() string {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	progressFrontText, err := vm.progressFrontText.Get()
+	if err != nil || progressFrontText == "" {
+		return "N/A"
+	}
+
+	return progressFrontText
+}
+
+func (vm *GameTile) GetProgressEndText() string {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	progressEndText, err := vm.progressEndText.Get()
+	if err != nil || progressEndText == "" {
+		return "N/A"
+	}
+
+	return progressEndText
+}
+
+func (vm *GameTile) EnableSingleplayerButton() bool {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	enableSingleplayerButton, err := vm.enableSingleplayerButton.Get()
+	if err != nil {
+		return false
+	}
+
+	return enableSingleplayerButton
+}
+
+func (vm *GameTile) EnableJoinMultiplayerButton() bool {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	enableJoinMultiplayerButton, err := vm.enableJoinMultiplayerButton.Get()
+	if err != nil {
+		return false
+	}
+
+	return enableJoinMultiplayerButton
+}
+
+func (vm *GameTile) EnableHostMultiplayerButton() bool {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	enableHostMultiplayerButton, err := vm.enableHostMultiplayerButton.Get()
+	if err != nil {
+		return false
+	}
+
+	return enableHostMultiplayerButton
+}
+
+func (vm *GameTile) EnableOpenInExplorerButton() bool {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	enableOpenInExplorerButton, err := vm.enableOpenInExplorerButton.Get()
+	if err != nil {
+		return false
+	}
+
+	return enableOpenInExplorerButton
+}
+
+func (vm *GameTile) ShowInstallationStopIcon() bool {
+	vm.mu.RLock()
+	defer vm.mu.RUnlock()
+
+	showInstallationStopIcon, err := vm.showInstallationStopIcon.Get()
+	if err != nil {
+		return false
+	}
+
+	return showInstallationStopIcon
+}

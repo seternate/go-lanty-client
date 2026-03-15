@@ -10,7 +10,6 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"slices"
 	"sync"
 	"time"
 
@@ -53,7 +52,7 @@ func (client *gameMockAPIClient) FetchCatalog(ctx context.Context) ([]game.Catal
 	return out, nil
 }
 
-func (client *gameMockAPIClient) GetIcon(slug string) (image.Image, error) {
+func (client *gameMockAPIClient) FetchIcon(ctx context.Context, slug string) (image.Image, error) {
 	client.mu.RLock()
 	icon, ok := client.icons[slug]
 	client.mu.RUnlock()
@@ -183,13 +182,13 @@ func (client *gameMockAPIClient) GetAllInstallationProgresses(ctx context.Contex
 	return maps.Clone(client.progress), nil
 }
 
-func (client *gameMockAPIClient) GetProgress(slug string) (game.InstallationProgress, error) {
+func (client *gameMockAPIClient) GetInstallationProgress(ctx context.Context, slug string) (game.InstallationProgress, error) {
 	client.mu.RLock()
 	defer client.mu.RUnlock()
 
 	progress, ok := client.progress[slug]
 	if !ok {
-		return game.InstallationProgress{}, errors.New("progress not found")
+		return game.InstallationProgress{}, nil
 	}
 
 	return progress, nil
@@ -476,7 +475,11 @@ func (c *gameMockAPIClient) addCatalogItem(slug, name string, icon image.Image, 
 		Name:              name,
 		IconHash:          "mock-icon-" + slug,
 		InstalledFileSize: blobSize,
-		DetectionHints:    game.InstallationDetectionHints{},
+		DetectionHints: game.InstallationDetectionHints{
+			FilePaths: []string{
+				slug + ".exe",
+			},
+		},
 		Capabilities: game.Capabilities{
 			JoiningMultiplayer: supportsJoiningMultiplayer,
 			HostingServer:      supportsHostingServer,
@@ -510,55 +513,4 @@ func makeIcon(r, g, b uint8) image.Image {
 	c := color.RGBA{R: r, G: g, B: b, A: 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{C: c}, image.Pt(0, 0), draw.Src)
 	return img
-}
-
-// gameExtensionMock implements extension service interfaces without conflicting with gameMockAPIClient.Download.
-type gameExtensionMock struct {
-	gameExtensions map[string][]game.Extension
-	mu             sync.RWMutex
-}
-
-func NewGameExtensionMock() *gameExtensionMock {
-	mock := &gameExtensionMock{
-		gameExtensions: make(map[string][]game.Extension),
-	}
-	mock.gameExtensions[extensionMockGameSlug] = []game.Extension{
-		game.NewExtension(extensionMockGameSlug, "custom_maps_v2.vpk", "Custom Maps Pack", 15728640, true),
-		game.NewExtension(extensionMockGameSlug, "sound_overhaul.vpk", "Sound Overhaul", 8388608, false),
-		game.NewExtension(extensionMockGameSlug, "ui_skins.vpk", "UI Skins", 2097152, true),
-	}
-	return mock
-}
-
-func (m *gameExtensionMock) ListForGame(ctx context.Context, slug string) ([]game.Extension, error) {
-	if slug != extensionMockGameSlug {
-		return nil, nil
-	}
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	extensions, ok := m.gameExtensions[slug]
-	if !ok {
-		return nil, nil
-	}
-	return slices.Clone(extensions), nil
-}
-
-func (m *gameExtensionMock) Upload(ctx context.Context, slug string, localFilePath string) error {
-	return nil
-}
-
-func (m *gameExtensionMock) Download(ctx context.Context, slug string, filename string, destDir string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	extensions, ok := m.gameExtensions[slug]
-	if !ok {
-		return errors.New("game not found")
-	}
-	for _, ext := range extensions {
-		if ext.Filename == filename {
-			ext.MarkDownloaded()
-			return nil
-		}
-	}
-	return errors.New("extension not found")
 }

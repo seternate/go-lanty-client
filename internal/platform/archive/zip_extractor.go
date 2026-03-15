@@ -144,3 +144,14 @@ func (extractor *ZipExtractor) GetAllInstallationProgresses(ctx context.Context)
 
 	return maps.Clone(extractor.progress), nil
 }
+
+func (extractor *ZipExtractor) GetInstallationProgress(ctx context.Context, slug string) (game.InstallationProgress, error) {
+	extractor.mu.RLock()
+	defer extractor.mu.RUnlock()
+
+	progress, ok := extractor.progress[slug]
+	if !ok {
+		return game.InstallationProgress{}, nil
+	}
+	return progress, nil
+}

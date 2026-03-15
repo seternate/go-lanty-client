@@ -17,10 +17,12 @@ import (
 	"github.com/seternate/go-lanty-client/internal/game"
 	"github.com/seternate/go-lanty-client/internal/platform/archive"
 	"github.com/seternate/go-lanty-client/internal/platform/filesystem"
+	"github.com/seternate/go-lanty-client/internal/platform/process"
 	"github.com/seternate/go-lanty-client/internal/setting"
 	"github.com/seternate/go-lanty-client/internal/ui/app"
-	gameview "github.com/seternate/go-lanty-client/internal/ui/view/game"
 	gameviewmodel "github.com/seternate/go-lanty-client/internal/ui/viewmodel/game"
+	settingsviewmodel "github.com/seternate/go-lanty-client/internal/ui/viewmodel/settings"
+	userviewmodel "github.com/seternate/go-lanty-client/internal/ui/viewmodel/user"
 	"github.com/seternate/go-lanty-client/internal/user"
 	"github.com/seternate/go-lanty/pkg/logging"
 	"golang.org/x/sync/errgroup"
@@ -72,22 +74,19 @@ func main() {
 	usercatalogrepo := user.NewInMemoryCatalogRepository()
 	gameinstallationrepo := game.NewInMemoryInstallationRepository()
 	gameInstallationPathFinder := game.NewInstallationPathFinder()
-	//explorerOpener := filesystem.NewFileExplorerOpener()
+	explorerOpener := filesystem.NewFileExplorerOpener()
 	archiveExtractor := archive.NewZipExtractor()
-	//processLauncher := process.NewProcessLauncher()
+	processLauncher := process.NewProcessLauncher()
 	diskSpaceProvider := filesystem.NewDiskSpaceProvider()
-	// OLD gameExtensionRepo := gamerepository.NewInMemoryExtensionRepository()
-	// OLD gameExtensionMock := apiadapter.NewGameExtensionMock()
 
 	diskmonitor := diskspace.NewMonitor(bus, DiskSpaceChangeDetectionThresholdBytes, diskSpaceProvider)
 	gameCatalogSyncer := game.NewCatalogSyncer(bus, gameMockAPIClient, gamecatalogrepo)
-	//gameInstallationDirectoryOpener := game.NewInstallationDirectoryOpener(gameinstallationrepo, explorerOpener)
+	gameInstallationDirectoryOpener := game.NewInstallationDirectoryOpener(gameinstallationrepo, explorerOpener)
 	gameInstallationProgressEmitter := game.NewInstallationProgressEmitter(bus, gameMockAPIClient, archiveExtractor)
 	gameInstallationReconciler := game.NewInstallationReconciler(bus, gameinstallationrepo, gamecatalogrepo, gameInstallationPathFinder)
-	//gameInstallationRunner := game.NewInstallationRunner(bus, gameinstallationrepo, gameMockAPIClient, archiveExtractor)
-	//gameLaunchRunner := game.NewLaunchRunner(gameinstallationrepo, processLauncher, gameMockAPIClient)
+	gameInstallationRunner := game.NewInstallationRunner(bus, gameinstallationrepo, gameMockAPIClient, archiveExtractor, settingStore)
+	gameLaunchRunner := game.NewLaunchRunner(gameinstallationrepo, processLauncher, gameMockAPIClient)
 	userCatalogSyncer := user.NewCatalogSyncer(bus, userMockAPIClient, usercatalogrepo)
-	// OLD extensionService := gameappsrv.NewExtensionService(bus, gameExtensionRepo, gameInstallationRepo, gamedirectory, gameExtensionMock, gameExtensionMock, gameExtensionMock)
 
 	scheduler, err := gocron.NewScheduler(gocron.WithGlobalJobOptions(gocron.WithStartAt(gocron.WithStartImmediately())))
 	if err != nil {
@@ -121,70 +120,36 @@ func main() {
 
 	appShell := app.NewAppShell(AppName, resourceIconPng, Version)
 
-	// TEST CODE
-	games, _ := gameMockAPIClient.FetchCatalog(context.Background())
-	game := games[0]
-	gametileviewmodel := gameviewmodel.NewGameTile(game.Slug, nil)
-	icon, _ := gameMockAPIClient.GetIcon(game.Slug)
-	gametileviewmodel.Icon.Set(icon)
-	gametileviewmodel.Name.Set(game.Name)
-	gametileviewmodel.InstalledFileSize.Set(fmt.Sprintf("%d GB", game.InstalledFileSize))
-	gametileviewmodel.IsProgressing.Set(true)
-	gametileviewmodel.Progress.Set(0.5)
-	gametileviewmodel.ProgressFrontText.Set("Downloading... 100 MB / 200 MB")
-	gametileviewmodel.ProgressEndText.Set("100 MB/s")
-	gametileviewmodel.ExtensionsVisible.Set(true)
-	gametileviewmodel.HasNewExtensions.Set(true)
-	gametileview := gameview.NewGameTile(gametileviewmodel)
-	//
+	gamescreenviewmodel := gameviewmodel.NewGameScreen(gameLaunchRunner, gameInstallationRunner, gameInstallationDirectoryOpener)
+	userscreenviewmodel := userviewmodel.NewUserScreen()
+	settingsscreenviewmodel := settingsviewmodel.NewSettingsScreen(settingStore, appShell)
 
-	appShell.SetGameTile(gametileview)
+	gameScreenSyncer := app.NewGameScreenSyncer(gamescreenviewmodel, gamecatalogrepo, gameMockAPIClient, gameinstallationrepo, gameMockAPIClient, archiveExtractor)
+	userScreenSyncer := app.NewUserScreenSyncer(userscreenviewmodel, usercatalogrepo)
+
+	bus.Subscribe(game.CatalogAddedEvent, gameScreenSyncer.OnCatalogItemAdded)
+	bus.Subscribe(game.CatalogUpdatedEvent, gameScreenSyncer.OnCatalogItemUpdated)
+	bus.Subscribe(game.CatalogRemovedEvent, gameScreenSyncer.OnCatalogItemRemoved)
+	bus.Subscribe(game.InstallationStartedEvent, gameScreenSyncer.OnInstallationUpdated)
+	bus.Subscribe(game.InstallationProgressedEvent, gameScreenSyncer.OnInstallationUpdated)
+	bus.Subscribe(game.InstallationFinishedEvent, gameScreenSyncer.OnInstallationUpdated)
+	bus.Subscribe(game.InstallationCancelledEvent, gameScreenSyncer.OnInstallationUpdated)
+	bus.Subscribe(game.InstallationFailedEvent, gameScreenSyncer.OnInstallationUpdated)
+	bus.Subscribe(game.InstallationDetectedEvent, gameScreenSyncer.OnInstallationUpdated)
+	bus.Subscribe(game.InstallationRemovedEvent, gameScreenSyncer.OnInstallationUpdated)
+	bus.Subscribe(diskspace.DiskSpaceChangedEvent, gameScreenSyncer.OnDiskSpaceChanged)
+
+	bus.Subscribe(user.CatalogAddedEvent, userScreenSyncer.OnCatalogItemAdded)
+	bus.Subscribe(user.CatalogUpdatedEvent, userScreenSyncer.OnCatalogItemUpdated)
+	bus.Subscribe(user.CatalogRemovedEvent, userScreenSyncer.OnCatalogItemRemoved)
+
+	appShell.Bootstrap(gamescreenviewmodel, userscreenviewmodel, settingsscreenviewmodel)
 
 	// OLD
 
 	// joinUserAdapter := adapter.NewJoinUserAdapter(application.Window, userCatalogRepo)
 	// hostConfigAdapter := adapter.NewHostConfigAdapter(application.Window)
 	// extensionsAdapter := adapter.NewExtensionsAdapter(application.Window)
-
-	// gameController := gamecontroller.NewGameController(
-	// 	gameCatalogRepo,
-	// 	gameMockAPIClient,
-	// 	gameInstallationRepo,
-	// 	diskSpaceProvider,
-	// 	gameMockAPIClient,
-	// 	archiveExtractor,
-	// 	gameInstallationService,
-	// 	gameDirectoryOpener,
-	// 	joinUserAdapter,
-	// 	gameLauncherService,
-	// 	hostConfigAdapter,
-	// 	gameMockAPIClient,
-	// 	extensionService,
-	// 	extensionsAdapter,
-	// 	gamedirectory,
-	// )
-	// userController := usercontroller.NewUserController(userCatalogRepo)
-	// settingsController, _ := settingcontroller.NewSettingsController(settingsUpdateService, fileSettingsStore)
-
-	// bus.Subscribe(gameevent.CatalogAddedEvent, gameController.OnCatalogItemAdded)
-	// bus.Subscribe(gameevent.CatalogUpdatedEvent, gameController.OnCatalogItemUpdated)
-	// bus.Subscribe(gameevent.CatalogRemovedEvent, gameController.OnCatalogItemRemoved)
-	// bus.Subscribe(gameevent.InstallationStartedEvent, gameController.OnInstallationStarted)
-	// bus.Subscribe(gameevent.InstallationProgressEvent, gameController.OnInstallationProgress)
-	// bus.Subscribe(gameevent.InstallationFinishedEvent, gameController.OnInstallationFinished)
-	// bus.Subscribe(gameevent.InstallationCanceledEvent, gameController.OnInstallationCanceled)
-	// bus.Subscribe(gameevent.InstallationFailedEvent, gameController.OnInstallationFailed)
-	// bus.Subscribe(gameevent.InstallationDetectedEvent, gameController.OnInstallationDetected)
-	// bus.Subscribe(gameevent.InstallationRemovedEvent, gameController.OnInstallationRemoved)
-	// bus.Subscribe(gameevent.ExtensionListRefreshedEvent, gameController.OnExtensionListRefreshed)
-	// bus.Subscribe(gameevent.ExtensionDownloadedEvent, gameController.OnExtensionDownloaded)
-	// bus.Subscribe(systemevent.DiskSpaceChangedEvent, gameController.OnDiskSpaceChanged)
-
-	// bus.Subscribe(userevent.CatalogAddedEvent, userController.OnUserAdded)
-	// bus.Subscribe(userevent.CatalogUpdatedEvent, userController.OnUserUpdated)
-	// bus.Subscribe(userevent.CatalogRemovedEvent, userController.OnUserRemoved)
-
-	// application.Bootstrap(gameController, userController, settingsController)
 
 	scheduler.Start()
 

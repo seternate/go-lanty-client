@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	eventbus "github.com/asaskevich/EventBus"
+	"github.com/seternate/go-lanty-client/internal/setting"
 )
 
 type ArchiveDownloader interface {
@@ -24,21 +25,23 @@ type InstallationRunner struct {
 	downloader ArchiveDownloader
 	extractor  ArchiveExtractor
 
-	mu            sync.Mutex
-	installations map[string]context.CancelFunc
+	mu               sync.Mutex
+	installations    map[string]context.CancelFunc
+	settingsProvider setting.SettingsProvider
 }
 
-func NewInstallationRunner(bus eventbus.Bus, repo InstallationRepository, downloader ArchiveDownloader, extractor ArchiveExtractor) *InstallationRunner {
+func NewInstallationRunner(bus eventbus.Bus, repo InstallationRepository, downloader ArchiveDownloader, extractor ArchiveExtractor, settingsProvider setting.SettingsProvider) *InstallationRunner {
 	return &InstallationRunner{
-		bus:           bus,
-		repo:          repo,
-		downloader:    downloader,
-		extractor:     extractor,
-		installations: make(map[string]context.CancelFunc),
+		bus:              bus,
+		repo:             repo,
+		downloader:       downloader,
+		extractor:        extractor,
+		settingsProvider: settingsProvider,
+		installations:    make(map[string]context.CancelFunc),
 	}
 }
 
-func (runner *InstallationRunner) StartInstallation(ctx context.Context, baseDir string, slug string) error {
+func (runner *InstallationRunner) StartInstallation(ctx context.Context, slug string) error {
 	installation, err := runner.repo.GetBySlug(ctx, slug)
 	if err != nil {
 		return fmt.Errorf("failed to get installation: %w", err)
@@ -53,7 +56,12 @@ func (runner *InstallationRunner) StartInstallation(ctx context.Context, baseDir
 	runner.installations[installation.Slug] = cancel
 	runner.mu.Unlock()
 
-	err = runner.runInstallation(ctx, baseDir, installation)
+	settings, err := runner.settingsProvider.Get()
+	if err != nil {
+		return fmt.Errorf("failed to get settings: %w", err)
+	}
+
+	err = runner.runInstallation(ctx, settings.GameDirectory, installation)
 	runner.mu.Lock()
 	delete(runner.installations, installation.Slug)
 	runner.mu.Unlock()
@@ -108,6 +116,16 @@ func (runner *InstallationRunner) runInstallation(ctx context.Context, baseDir s
 	err = runner.extractor.Extract(ctx, installation.Slug, downloadedFilePath, extractionPath, true)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
+			err = installation.MarkAsCancelled()
+			if err != nil {
+				return fmt.Errorf("failed to mark as cancelled: %w", err)
+			}
+			err = runner.repo.Store(ctx, installation)
+			if err != nil {
+				return fmt.Errorf("failed to store installation: %w", err)
+			}
+			runner.bus.Publish(InstallationCancelledEvent, InstallationEvent{Slug: installation.Slug})
+
 			return fmt.Errorf("extraction canceled: %w", err)
 		}
 
