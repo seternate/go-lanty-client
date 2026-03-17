@@ -85,7 +85,7 @@ func main() {
 	gameInstallationProgressEmitter := game.NewInstallationProgressEmitter(bus, gameMockAPIClient, archiveExtractor)
 	gameInstallationReconciler := game.NewInstallationReconciler(bus, gameinstallationrepo, gamecatalogrepo, gameInstallationPathFinder)
 	gameInstallationRunner := game.NewInstallationRunner(bus, gameinstallationrepo, gameMockAPIClient, archiveExtractor, settingStore)
-	gameLaunchRunner := game.NewLaunchRunner(gameinstallationrepo, processLauncher, gameMockAPIClient)
+	gameLaunchRunner := game.NewLaunchRunner(gameinstallationrepo, usercatalogrepo, processLauncher, gameMockAPIClient)
 	userCatalogSyncer := user.NewCatalogSyncer(bus, userMockAPIClient, usercatalogrepo)
 
 	scheduler, err := gocron.NewScheduler(gocron.WithGlobalJobOptions(gocron.WithStartAt(gocron.WithStartImmediately())))

@@ -136,6 +136,12 @@ func (param *LaunchParam) SetValue(value string) error {
 	return nil
 }
 
+func (param *LaunchParam) SetEnumValues(values []EnumValueOption, defaultValue string) error {
+	param.enumValues = values
+
+	return param.SetValue(defaultValue)
+}
+
 func (param *LaunchParam) Enable() {
 	param.enabled = true
 }

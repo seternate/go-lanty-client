@@ -264,11 +264,10 @@ func (client *gameMockAPIClient) getSingleplayerLaunchSpec(ctx context.Context) 
 func (client *gameMockAPIClient) getJoinLaunchSpec(ctx context.Context) (game.LaunchSpec, error) {
 	connectParam, err := game.NewLaunchParam(
 		game.LaunchParamInput{
-			Type:              game.LaunchParamString,
+			Type:              game.LaunchParamEnum,
 			Name:              "Connect",
 			Description:       "The address to connect to",
 			Argument:          "+connect",
-			Value:             "",
 			Required:          true,
 			Enabled:           true,
 			ArgumentSeparator: " ",

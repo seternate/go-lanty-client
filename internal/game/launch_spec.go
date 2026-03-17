@@ -29,16 +29,16 @@ func (spec *LaunchSpec) Params() []LaunchParam {
 	return spec.params
 }
 
-func (spec *LaunchSpec) UpdateParam(name string, argument string, value string, enabled bool) error {
+func (spec *LaunchSpec) UpdateParam(arg LaunchArg) error {
 	for i, p := range spec.params {
-		if p.name == name && p.argument == argument {
-			if enabled {
+		if p.name == arg.Name && p.argument == arg.Argument {
+			if arg.Enabled {
 				spec.params[i].Enable()
 			} else {
 				spec.params[i].Disable()
 			}
 
-			err := spec.params[i].SetValue(value)
+			err := spec.params[i].SetValue(arg.Value)
 			if err != nil {
 				return fmt.Errorf("failed to set value for param: %w", err)
 			}
@@ -47,27 +47,30 @@ func (spec *LaunchSpec) UpdateParam(name string, argument string, value string, 
 		}
 	}
 
-	return fmt.Errorf("param with name %q and argument %q not found", name, argument)
+	return fmt.Errorf("param with name %q and argument %q not found", arg.Name, arg.Argument)
 }
 
-func (spec *LaunchSpec) UpdateParamByName(name string, value string, enabled bool) error {
-	for i, p := range spec.params {
-		if p.name == name {
-			if enabled {
-				spec.params[i].Enable()
-			} else {
-				spec.params[i].Disable()
-			}
-
-			err := spec.params[i].SetValue(value)
+func (spec *LaunchSpec) UpdateConnectParam(options []EnumValueOption, defaultValue string) error {
+	for i, param := range spec.params {
+		if param.name == "Connect" {
+			err := spec.params[i].SetEnumValues(options, defaultValue)
 			if err != nil {
-				return fmt.Errorf("failed to set value for param: %w", err)
+				return fmt.Errorf("failed to set enum values for Connect param: %w", err)
 			}
-
 			return nil
 		}
 	}
-	return fmt.Errorf("param with name %q not found", name)
+	return nil
+}
+
+func (spec *LaunchSpec) UpdateParams(args []LaunchArg) error {
+	for _, arg := range args {
+		err := spec.UpdateParam(arg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (spec *LaunchSpec) Validate() error {

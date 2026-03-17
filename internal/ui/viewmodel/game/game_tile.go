@@ -18,14 +18,6 @@ type IconFetcher interface {
 	FetchIcon(ctx context.Context, slug string) (image.Image, error)
 }
 
-// type JoinMultiplayerNavigator interface {
-// 	OpenUserSelection(name string, onSelected func(ipAddress string))
-// }
-
-// type HostMultiplayerNavigator interface {
-// 	ShowHostArgumentConfigForm(viewmodel *ArgumentConfigForm, onSubmit func(values []game.LaunchArg))
-// }
-
 type LaunchArgumentConfigurator interface {
 	ShowLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg))
 }
@@ -66,9 +58,7 @@ type GameTile struct {
 	showInstallationStopIcon binding.Bool
 	isInstalling             binding.Bool
 
-	launchRunner *game.LaunchRunner
-	// joinGameNavigator JoinMultiplayerNavigator
-	// hostGameNavigator HostMultiplayerNavigator
+	launchRunner                *game.LaunchRunner
 	launchArgumentConfigurator  LaunchArgumentConfigurator
 	installationRunner          *game.InstallationRunner
 	installationDirectoryOpener *game.InstallationDirectoryOpener
@@ -177,9 +167,8 @@ func (vm *GameTile) StartSingleplayer() {
 		return
 	}
 
-	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Start Singleplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
-		//TODO: Add LaunchArgs
-		vm.launchRunner.StartSingleplayer(context.Background(), vm.slug)
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Start singleplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+		vm.launchRunner.StartSingleplayer(context.Background(), vm.slug, values)
 	})
 }
 
@@ -190,9 +179,7 @@ func (vm *GameTile) OpenUserSelectionToJoinMultiplayer() {
 	}
 
 	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Join multiplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
-		//TODO: Add LaunchArgs
-		//TODO: Get IP address from user selection
-		vm.launchRunner.JoinMultiplayer(context.Background(), vm.slug, "0.0.0.0")
+		vm.launchRunner.JoinMultiplayer(context.Background(), vm.slug, values)
 	})
 }
 
@@ -202,7 +189,7 @@ func (vm *GameTile) OpenArgumentConfigurationToHostMultiplayer() {
 		return
 	}
 
-	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Host Multiplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Host multiplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
 		vm.launchRunner.HostMultiplayer(context.Background(), vm.slug, values)
 	})
 }
