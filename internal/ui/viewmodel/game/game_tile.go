@@ -172,45 +172,38 @@ func (vm *GameTile) UpdateFromModel(update GameTileUpdate) error {
 }
 
 func (vm *GameTile) StartSingleplayer() {
-	vm.launchRunner.StartSingleplayer(context.Background(), vm.slug)
+	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModePlay)
+	if err != nil {
+		return
+	}
+
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Start Singleplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+		//TODO: Add LaunchArgs
+		vm.launchRunner.StartSingleplayer(context.Background(), vm.slug)
+	})
 }
 
 func (vm *GameTile) OpenUserSelectionToJoinMultiplayer() {
-	// name, err := vm.Name.Get()
-	// if err != nil {
-	// 	return
-	// }
+	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModeJoin)
+	if err != nil {
+		return
+	}
 
-	// vm.joinGameNavigator.OpenUserSelection(name, func(ipAddress string) {
-	// 	vm.launchRunner.JoinMultiplayer(context.Background(), vm.Slug, ipAddress)
-	// })
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Join multiplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+		//TODO: Add LaunchArgs
+		//TODO: Get IP address from user selection
+		vm.launchRunner.JoinMultiplayer(context.Background(), vm.slug, "0.0.0.0")
+	})
 }
 
 func (vm *GameTile) OpenArgumentConfigurationToHostMultiplayer() {
-	// launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.Slug, game.LaunchSpecModeHost)
-	// if err != nil {
-	// 	return
-	// }
-
-	// configForm, err := NewArgumentConfigFormFromLaunchParams("Host Game", launchSpec.Params())
-	// if err != nil {
-	// 	return
-	// }
-	// configForm.OnSubmit = func() {
-	// 	for _, field := range configForm.Fields {
-	// }
-
-	// vm.hostGameNavigator.ShowHostArgumentConfigForm(configForm, func(values []game.LaunchArg) {
-	// 	vm.launchRunner.HostMultiplayer(context.Background(), vm.Slug, values)
-	// })
-
 	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModeHost)
 	if err != nil {
 		return
 	}
 
-	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Server configuration - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
-		// vm.launchRunner.HostMultiplayer(context.Background(), vm.slug, values)
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Host Multiplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+		vm.launchRunner.HostMultiplayer(context.Background(), vm.slug, values)
 	})
 }
 

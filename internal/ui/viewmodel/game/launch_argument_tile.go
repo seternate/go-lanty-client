@@ -13,6 +13,7 @@ type LaunchArgumentTile struct {
 	argument    string
 	enumValues  map[string]string
 	enableTile  bool
+	required    bool
 	minInt      *int64
 	maxInt      *int64
 	minFloat    *float64
@@ -34,6 +35,7 @@ func NewLaunchArgumentTileFromModel(model game.LaunchParam) (*LaunchArgumentTile
 		argument:            model.Argument(),
 		enumValues:          make(map[string]string, len(model.EnumValues())),
 		enableTile:          !model.Required(),
+		required:            model.Required(),
 		minInt:              model.MinInt(),
 		maxInt:              model.MaxInt(),
 		minFloat:            model.MinFloat(),
@@ -147,7 +149,7 @@ func (vm *LaunchArgumentTile) SetValidationError(s string) {
 }
 
 func (vm *LaunchArgumentTile) validateNumeric() {
-	if !vm.ShowEntry() || (vm.minInt == nil && vm.maxInt == nil && vm.minFloat == nil && vm.maxFloat == nil) {
+	if !vm.ShowEntry() || (vm.minInt == nil && vm.maxInt == nil && vm.minFloat == nil && vm.maxFloat == nil && !vm.required) {
 		vm.SetValidationError("")
 		return
 	}
@@ -159,7 +161,11 @@ func (vm *LaunchArgumentTile) validateNumeric() {
 	}
 
 	if valueStr == "" {
-		vm.SetValidationError("")
+		if vm.required {
+			vm.SetValidationError("Required field can not be empty")
+		} else {
+			vm.SetValidationError("")
+		}
 		return
 	}
 
@@ -193,7 +199,7 @@ func (vm *LaunchArgumentTile) validateNumeric() {
 
 	value, err := strconv.ParseFloat(valueStr, 64)
 	if err != nil {
-		vm.SetValidationError("Value must be a number")
+		vm.SetValidationError("Must be a number")
 		return
 	}
 
