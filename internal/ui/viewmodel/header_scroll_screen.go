@@ -3,8 +3,10 @@ package viewmodel
 import "fyne.io/fyne/v2/data/binding"
 
 type HeaderScrollScreen struct {
-	title binding.String
-	info  binding.String
+	title    binding.String
+	info     binding.String
+	onSubmit func()
+	onCancel func()
 }
 
 func NewHeaderScrollScreen(title string) *HeaderScrollScreen {
@@ -54,4 +56,32 @@ func (vm *HeaderScrollScreen) GetInfo() string {
 
 func (vm *HeaderScrollScreen) SetInfo(info string) {
 	vm.info.Set(info)
+}
+
+func (vm *HeaderScrollScreen) SetOnSubmit(fn func()) {
+	vm.onSubmit = fn
+}
+
+func (vm *HeaderScrollScreen) SetOnCancel(fn func()) {
+	vm.onCancel = fn
+}
+
+func (vm *HeaderScrollScreen) HasOnSubmit() bool {
+	return vm.onSubmit != nil
+}
+
+func (vm *HeaderScrollScreen) HasOnCancel() bool {
+	return vm.onCancel != nil
+}
+
+func (vm *HeaderScrollScreen) CallOnSubmit() {
+	if vm.onSubmit != nil {
+		vm.onSubmit()
+	}
+}
+
+func (vm *HeaderScrollScreen) CallOnCancel() {
+	if vm.onCancel != nil {
+		vm.onCancel()
+	}
 }

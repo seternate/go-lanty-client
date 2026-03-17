@@ -104,14 +104,17 @@ func (vm *LaunchArgumentTile) GetEnabled() bool {
 	return enabled
 }
 
-func (vm *LaunchArgumentTile) GetValueForList() string {
+func (vm *LaunchArgumentTile) GetValue() string {
 	value, err := vm.Value.Get()
 	if err != nil {
 		return ""
 	}
+	return value
+}
 
+func (vm *LaunchArgumentTile) GetValueForList() string {
 	for label, v := range vm.enumValues {
-		if v == value {
+		if v == vm.GetValue() {
 			return label
 		}
 	}
@@ -148,18 +151,22 @@ func (vm *LaunchArgumentTile) SetValidationError(s string) {
 	vm.ShowValidationError.Set(s != "")
 }
 
+func (vm *LaunchArgumentTile) GetLaunchArg() game.LaunchArg {
+	return game.LaunchArg{
+		Name:     vm.name,
+		Argument: vm.argument,
+		Value:    vm.GetValue(),
+		Enabled:  vm.GetEnabled(),
+	}
+}
+
 func (vm *LaunchArgumentTile) validateNumeric() {
 	if !vm.ShowEntry() || (vm.minInt == nil && vm.maxInt == nil && vm.minFloat == nil && vm.maxFloat == nil && !vm.required) {
 		vm.SetValidationError("")
 		return
 	}
 
-	valueStr, err := vm.Value.Get()
-	if err != nil {
-		vm.SetValidationError("")
-		return
-	}
-
+	valueStr := vm.GetValue()
 	if valueStr == "" {
 		if vm.required {
 			vm.SetValidationError("Required field can not be empty")

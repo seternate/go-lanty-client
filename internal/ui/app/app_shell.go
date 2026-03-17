@@ -117,7 +117,7 @@ func (appShell *AppShell) ShowFolderPickerDialog(location string, callback func(
 }
 
 func (appShell *AppShell) ShowLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg)) {
-	launchArgumentScreen, err := gameviewmodel.NewLaunchArgumentScreen(title, info, arguments, onSubmit)
+	launchArgumentScreen, err := gameviewmodel.NewLaunchArgumentScreen(title, info, arguments, onSubmit, nil)
 	if err != nil {
 		return
 	}

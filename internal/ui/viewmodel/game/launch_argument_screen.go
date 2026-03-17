@@ -14,7 +14,7 @@ type LaunchArgumentScreen struct {
 	onSubmit  func(values []game.LaunchArg)
 }
 
-func NewLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg)) (*LaunchArgumentScreen, error) {
+func NewLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg), onCancel func()) (*LaunchArgumentScreen, error) {
 	vm := &LaunchArgumentScreen{
 		Header:    viewmodel.NewHeaderScrollScreen(title),
 		arguments: binding.NewUntypedList(),
@@ -22,6 +22,10 @@ func NewLaunchArgumentScreen(title string, info string, arguments []game.LaunchP
 	}
 
 	vm.Header.SetInfo(info)
+	vm.Header.SetOnSubmit(func() {
+		onSubmit(vm.GetArgumentValues())
+	})
+	vm.Header.SetOnCancel(onCancel)
 
 	for _, argument := range arguments {
 		argumentTile, err := NewLaunchArgumentTileFromModel(argument)
@@ -53,4 +57,14 @@ func (vm *LaunchArgumentScreen) GetArgumentTiles() []*LaunchArgumentTile {
 	}
 
 	return argumentTiles
+}
+
+func (vm *LaunchArgumentScreen) GetArgumentValues() []game.LaunchArg {
+	argumentValues := make([]game.LaunchArg, 0)
+
+	for _, argument := range vm.GetArgumentTiles() {
+		argumentValues = append(argumentValues, argument.GetLaunchArg())
+	}
+
+	return argumentValues
 }
