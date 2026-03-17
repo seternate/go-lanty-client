@@ -84,9 +84,10 @@ type launchArgumentTileRenderer struct {
 
 	background *canvas.Rectangle
 
-	name        *canvas.Text
-	description *canvas.Text
-	argument    *canvas.Text
+	name              *canvas.Text
+	description       *canvas.Text
+	argument          *canvas.Text
+	validationMessage *canvas.Text
 }
 
 func newLaunchArgumentTileRenderer(view *LaunchArgumentTile) *launchArgumentTileRenderer {
@@ -107,6 +108,9 @@ func newLaunchArgumentTileRenderer(view *LaunchArgumentTile) *launchArgumentTile
 	renderer.argument = canvas.NewText(view.vm.GetArgument(), color.RGBA{180, 180, 180, 255})
 	renderer.argument.TextSize = theme.TextSize() * 0.85
 
+	renderer.validationMessage = canvas.NewText(view.vm.GetValidationError(), theme.StatusColor(theme.StatusError))
+	renderer.validationMessage.TextSize = theme.TextSize() * 0.85
+
 	return renderer
 }
 
@@ -119,6 +123,7 @@ func (renderer *launchArgumentTileRenderer) Objects() []fyne.CanvasObject {
 		renderer.view.enabled,
 		renderer.view.entry,
 		renderer.view.list,
+		renderer.validationMessage,
 	}
 }
 
@@ -134,7 +139,6 @@ func (renderer *launchArgumentTileRenderer) Layout(size fyne.Size) {
 
 	renderer.view.enabled.Resize(renderer.view.enabled.MinSize())
 	renderer.view.enabled.Move(fyne.NewPos(size.Width-renderer.view.enabled.MinSize().Width/2-2*theme.InnerPadding(), 0))
-	//renderer.view.enabled.Move(fyne.NewPos(0, 0))
 
 	descriptionSize := fyne.MeasureText(renderer.description.Text, renderer.description.TextSize, renderer.description.TextStyle)
 	renderer.description.Move(fyne.NewPos(renderer.name.Position().X, renderer.name.Position().Y+nameSize.Height))
@@ -147,6 +151,8 @@ func (renderer *launchArgumentTileRenderer) Layout(size fyne.Size) {
 
 	renderer.view.entry.Move(controlPosition)
 	renderer.view.entry.Resize(controlSize)
+
+	renderer.validationMessage.Move(fyne.NewPos(renderer.name.Position().X, controlPosition.Y+controlSize.Height))
 }
 
 func (renderer *launchArgumentTileRenderer) MinSize() fyne.Size {
@@ -164,6 +170,10 @@ func (renderer *launchArgumentTileRenderer) MinSize() fyne.Size {
 		minHeight += renderer.view.list.MinSize().Height + theme.InnerPadding()
 	}
 
+	if renderer.view.vm.GetShowValidationError() {
+		minHeight += fyne.MeasureText(renderer.view.vm.GetValidationError(), renderer.validationMessage.TextSize, renderer.validationMessage.TextStyle).Height
+	}
+
 	return fyne.Size{
 		Width:  minWidth,
 		Height: minHeight,
@@ -179,10 +189,18 @@ func (renderer *launchArgumentTileRenderer) Refresh() {
 		renderer.name.Color = color.RGBA{180, 180, 180, 255}
 	}
 
+	renderer.validationMessage.Text = renderer.view.vm.GetValidationError()
+	if renderer.view.vm.GetShowValidationError() {
+		renderer.validationMessage.Show()
+	} else {
+		renderer.validationMessage.Hide()
+	}
+
 	renderer.background.Refresh()
 	renderer.name.Refresh()
 	renderer.description.Refresh()
 	renderer.argument.Refresh()
+	renderer.validationMessage.Refresh()
 }
 
 func (renderer *launchArgumentTileRenderer) Destroy() {}
