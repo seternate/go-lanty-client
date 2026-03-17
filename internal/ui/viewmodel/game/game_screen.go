@@ -21,9 +21,10 @@ type GameScreen struct {
 	launchRunner                *game.LaunchRunner
 	installationRunner          *game.InstallationRunner
 	installationDirectoryOpener *game.InstallationDirectoryOpener
+	launchArgumentConfigurator  LaunchArgumentConfigurator
 }
 
-func NewGameScreen(launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener) *GameScreen {
+func NewGameScreen(launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener, launchArgumentConfigurator LaunchArgumentConfigurator) *GameScreen {
 	availableGames := binding.NewInt()
 	installedGames := binding.NewInt()
 	freeDiskSpace := binding.NewString()
@@ -39,6 +40,7 @@ func NewGameScreen(launchRunner *game.LaunchRunner, installationRunner *game.Ins
 		launchRunner:                launchRunner,
 		installationRunner:          installationRunner,
 		installationDirectoryOpener: installationDirectoryOpener,
+		launchArgumentConfigurator:  launchArgumentConfigurator,
 	}
 
 	return vm
@@ -81,7 +83,7 @@ func (vm *GameScreen) getGameTileBySlug(slug string) *GameTile {
 }
 
 func (vm *GameScreen) AddGameTile(create GameTileCreate) error {
-	gametile, err := NewGameTileFromModel(create, vm.launchRunner, vm.installationRunner, vm.installationDirectoryOpener)
+	gametile, err := NewGameTileFromModel(create, vm.launchRunner, vm.installationRunner, vm.installationDirectoryOpener, vm.launchArgumentConfigurator)
 	if err != nil {
 		return fmt.Errorf("failed to create game tile: %w", err)
 	}

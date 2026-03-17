@@ -120,7 +120,7 @@ func main() {
 
 	appShell := app.NewAppShell(AppName, resourceIconPng, Version)
 
-	gamescreenviewmodel := gameviewmodel.NewGameScreen(gameLaunchRunner, gameInstallationRunner, gameInstallationDirectoryOpener)
+	gamescreenviewmodel := gameviewmodel.NewGameScreen(gameLaunchRunner, gameInstallationRunner, gameInstallationDirectoryOpener, appShell)
 	userscreenviewmodel := userviewmodel.NewUserScreen()
 	settingsscreenviewmodel := settingsviewmodel.NewSettingsScreen(settingStore, appShell)
 

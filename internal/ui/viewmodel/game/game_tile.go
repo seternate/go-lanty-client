@@ -26,6 +26,10 @@ type IconFetcher interface {
 // 	ShowHostArgumentConfigForm(viewmodel *ArgumentConfigForm, onSubmit func(values []game.LaunchArg))
 // }
 
+type LaunchArgumentConfigurator interface {
+	ShowLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg))
+}
+
 type GameTileUpdate struct {
 	Icon         image.Image
 	CatalogItem  game.CatalogItem
@@ -65,13 +69,14 @@ type GameTile struct {
 	launchRunner *game.LaunchRunner
 	// joinGameNavigator JoinMultiplayerNavigator
 	// hostGameNavigator HostMultiplayerNavigator
+	launchArgumentConfigurator  LaunchArgumentConfigurator
 	installationRunner          *game.InstallationRunner
 	installationDirectoryOpener *game.InstallationDirectoryOpener
 
 	mu sync.RWMutex
 }
 
-func NewGameTileFromModel(create GameTileCreate, launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener) (*GameTile, error) {
+func NewGameTileFromModel(create GameTileCreate, launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener, launchArgumentConfigurator LaunchArgumentConfigurator) (*GameTile, error) {
 	vm := &GameTile{
 		slug:                        create.CatalogItem.Slug,
 		icon:                        binding.NewUntyped(),
@@ -92,6 +97,7 @@ func NewGameTileFromModel(create GameTileCreate, launchRunner *game.LaunchRunner
 		launchRunner:                launchRunner,
 		installationRunner:          installationRunner,
 		installationDirectoryOpener: installationDirectoryOpener,
+		launchArgumentConfigurator:  launchArgumentConfigurator,
 	}
 
 	err := vm.UpdateFromModel(GameTileUpdate{
@@ -197,6 +203,15 @@ func (vm *GameTile) OpenArgumentConfigurationToHostMultiplayer() {
 	// vm.hostGameNavigator.ShowHostArgumentConfigForm(configForm, func(values []game.LaunchArg) {
 	// 	vm.launchRunner.HostMultiplayer(context.Background(), vm.Slug, values)
 	// })
+
+	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModeHost)
+	if err != nil {
+		return
+	}
+
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Server configuration - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+		// vm.launchRunner.HostMultiplayer(context.Background(), vm.slug, values)
+	})
 }
 
 func (vm *GameTile) ToggleInstallation() {

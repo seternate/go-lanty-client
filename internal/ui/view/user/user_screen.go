@@ -35,6 +35,7 @@ func NewUserScreen(vm *userviewmodel.UserScreen) *UserScreen {
 	})
 
 	view.ExtendBaseWidget(view)
+
 	return view
 }
 

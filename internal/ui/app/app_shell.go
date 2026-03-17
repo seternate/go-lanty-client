@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 	"github.com/rs/zerolog/log"
+	"github.com/seternate/go-lanty-client/internal/game"
 	"github.com/seternate/go-lanty-client/internal/network"
 	gameview "github.com/seternate/go-lanty-client/internal/ui/view/game"
 	settingsview "github.com/seternate/go-lanty-client/internal/ui/view/setting"
@@ -113,6 +114,21 @@ func (appShell *AppShell) ShowFolderPickerDialog(location string, callback func(
 	folderDialog.SetLocation(listabelLocation)
 	folderDialog.Resize(fyne.NewSize(800, 600))
 	folderDialog.Show()
+}
+
+func (appShell *AppShell) ShowLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg)) {
+	launchArgumentScreen, err := gameviewmodel.NewLaunchArgumentScreen(title, info, arguments, onSubmit)
+	if err != nil {
+		return
+	}
+
+	launchArgumentScreenView := gameview.NewLaunchArgumentScreen(launchArgumentScreen)
+
+	appShell.gameScreen.Hide()
+	appShell.userScreen.Hide()
+	appShell.settingsScreen.Hide()
+
+	appShell.contentScreen.Add(launchArgumentScreenView)
 }
 
 func (appShell *AppShell) ShowAndRun() {
