@@ -153,11 +153,14 @@ func (renderer *headerScrollScreenRenderer) Refresh() {
 
 	if renderer.view.vm.HasOnSubmit() || renderer.view.vm.HasOnCancel() {
 		renderer.buttonsContainer.Show()
+		renderer.buttonBackground.Show()
 	} else {
 		renderer.buttonsContainer.Hide()
+		renderer.buttonBackground.Hide()
 	}
 
 	renderer.background.Refresh()
+	renderer.buttonBackground.Refresh()
 
 	renderer.titleText.Refresh()
 	renderer.infoText.Refresh()
