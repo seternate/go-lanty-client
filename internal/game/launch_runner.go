@@ -72,7 +72,7 @@ func (runner *LaunchRunner) StartSingleplayer(ctx context.Context, slug string, 
 		return fmt.Errorf("game is not installed")
 	}
 
-	launchSpec, err := runner.specSource.GetLaunchSpec(ctx, slug, LaunchSpecModePlay)
+	launchSpec, err := runner.GetLaunchSpec(ctx, slug, LaunchSpecModePlay)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (runner *LaunchRunner) JoinMultiplayer(ctx context.Context, slug string, la
 		return fmt.Errorf("game is not installed")
 	}
 
-	launchSpec, err := runner.specSource.GetLaunchSpec(ctx, slug, LaunchSpecModeJoin)
+	launchSpec, err := runner.GetLaunchSpec(ctx, slug, LaunchSpecModeJoin)
 	if err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func (runner *LaunchRunner) HostMultiplayer(ctx context.Context, slug string, la
 		return fmt.Errorf("game is not installed")
 	}
 
-	launchSpec, err := runner.specSource.GetLaunchSpec(ctx, slug, LaunchSpecModeHost)
+	launchSpec, err := runner.GetLaunchSpec(ctx, slug, LaunchSpecModeHost)
 	if err != nil {
 		return err
 	}

@@ -117,12 +117,33 @@ func (appShell *AppShell) ShowFolderPickerDialog(location string, callback func(
 }
 
 func (appShell *AppShell) ShowLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg)) {
-	launchArgumentScreen, err := gameviewmodel.NewLaunchArgumentScreen(title, info, arguments, onSubmit, nil)
+	var launchArgumentScreenView fyne.CanvasObject
+
+	cleanup := func() {
+		if launchArgumentScreenView != nil {
+			appShell.contentScreen.Remove(launchArgumentScreenView)
+		}
+		appShell.ShowGameScreen()
+	}
+
+	wrappedSubmit := func(values []game.LaunchArg) {
+		cleanup()
+
+		if onSubmit != nil {
+			onSubmit(values)
+		}
+	}
+
+	onCancel := func() {
+		cleanup()
+	}
+
+	launchArgumentScreen, err := gameviewmodel.NewLaunchArgumentScreen(title, info, arguments, wrappedSubmit, onCancel)
 	if err != nil {
 		return
 	}
 
-	launchArgumentScreenView := gameview.NewLaunchArgumentScreen(launchArgumentScreen)
+	launchArgumentScreenView = gameview.NewLaunchArgumentScreen(launchArgumentScreen)
 
 	appShell.gameScreen.Hide()
 	appShell.userScreen.Hide()
