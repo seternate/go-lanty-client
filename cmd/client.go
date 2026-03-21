@@ -94,7 +94,7 @@ func main() {
 	}
 	scheduler.NewJob(gocron.DurationJob(5*time.Second), gocron.NewTask(gameCatalogSyncer.Sync, context.Background()))
 	scheduler.NewJob(gocron.DurationJob(250*time.Millisecond), gocron.NewTask(gameInstallationProgressEmitter.Emit, context.Background()))
-	scheduler.NewJob(gocron.DurationJob(1*time.Second), gocron.NewTask(
+	scheduler.NewJob(gocron.DurationJob(3*time.Second), gocron.NewTask(
 		func(ctx context.Context) error {
 			settings, err := settingStore.Get()
 			if err != nil {
@@ -105,7 +105,7 @@ func main() {
 		context.Background(),
 	),
 	)
-	scheduler.NewJob(gocron.DurationJob(1*time.Second), gocron.NewTask(
+	scheduler.NewJob(gocron.DurationJob(5*time.Second), gocron.NewTask(
 		func(ctx context.Context) error {
 			settings, err := settingStore.Get()
 			if err != nil {
@@ -144,12 +144,6 @@ func main() {
 	bus.Subscribe(user.CatalogRemovedEvent, userScreenSyncer.OnCatalogItemRemoved)
 
 	appShell.Bootstrap(gamescreenviewmodel, userscreenviewmodel, settingsscreenviewmodel)
-
-	// OLD
-
-	// joinUserAdapter := adapter.NewJoinUserAdapter(application.Window, userCatalogRepo)
-	// hostConfigAdapter := adapter.NewHostConfigAdapter(application.Window)
-	// extensionsAdapter := adapter.NewExtensionsAdapter(application.Window)
 
 	scheduler.Start()
 
