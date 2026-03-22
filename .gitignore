@@ -3,6 +3,7 @@
 
 # whitelist
 !.gitignore
+!gen-mock-zips.sh
 !go.mod
 !go.sum
 !LICENSE.md
@@ -15,6 +16,7 @@
 !.github/**/
 !.github/**/*.yaml
 !cmd/
+!cmd/game-icon.png
 !cmd/icon.png
 !cmd/rsrc_*.syso
 !cmd/winres.json
