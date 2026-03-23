@@ -17,7 +17,7 @@
 !.github/**/*.yaml
 !cmd/
 !cmd/game-icon.png
-!cmd/icon.png
+!cmd/app-icon.png
 !cmd/rsrc_*.syso
 !cmd/winres.json
 !internal/
