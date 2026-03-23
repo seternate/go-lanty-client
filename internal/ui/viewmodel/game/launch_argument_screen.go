@@ -3,22 +3,21 @@ package gameviewmodel
 import (
 	"fmt"
 
-	"fyne.io/fyne/v2/data/binding"
 	"github.com/seternate/go-lanty-client/internal/game"
 	"github.com/seternate/go-lanty-client/internal/ui/viewmodel"
 )
 
 type LaunchArgumentScreen struct {
-	Header    *viewmodel.HeaderScrollScreen
-	arguments binding.UntypedList
-	onSubmit  func(values []game.LaunchArg)
+	Header   *viewmodel.HeaderScrollScreen
+	groups   []*LaunchArgumentGroup
+	onSubmit func(values []game.LaunchArg)
 }
 
 func NewLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg), onCancel func()) (*LaunchArgumentScreen, error) {
 	vm := &LaunchArgumentScreen{
-		Header:    viewmodel.NewHeaderScrollScreen(title),
-		arguments: binding.NewUntypedList(),
-		onSubmit:  onSubmit,
+		Header:   viewmodel.NewHeaderScrollScreen(title),
+		groups:   make([]*LaunchArgumentGroup, 0),
+		onSubmit: onSubmit,
 	}
 
 	vm.Header.SetInfo(info)
@@ -27,44 +26,30 @@ func NewLaunchArgumentScreen(title string, info string, arguments []game.LaunchP
 	})
 	vm.Header.SetOnCancel(onCancel)
 
-	for _, argument := range arguments {
-		argumentTile, err := NewLaunchArgumentTileFromModel(argument)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create argument tile: %w", err)
-		}
+	launchParamGroups := game.GroupLaunchParamsByCategory(arguments)
+	showGroupHeader := len(launchParamGroups) > 1
 
-		err = vm.arguments.Append(argumentTile)
+	for _, group := range launchParamGroups {
+		groupVM, err := NewLaunchArgumentGroupFromModel(group, showGroupHeader)
 		if err != nil {
-			return nil, fmt.Errorf("failed to add argument tile: %w", err)
+			return nil, fmt.Errorf("failed to create argument group: %w", err)
 		}
+		vm.groups = append(vm.groups, groupVM)
 	}
 
 	return vm, nil
 }
 
-func (vm *LaunchArgumentScreen) GetArgumentTiles() []*LaunchArgumentTile {
-	argumentTiles := make([]*LaunchArgumentTile, 0)
-
-	arguments, err := vm.arguments.Get()
-	if err != nil {
-		return nil
-	}
-
-	for _, argument := range arguments {
-		if tile, ok := argument.(*LaunchArgumentTile); ok {
-			argumentTiles = append(argumentTiles, tile)
-		}
-	}
-
-	return argumentTiles
+func (vm *LaunchArgumentScreen) GetArgumentGroups() []*LaunchArgumentGroup {
+	return vm.groups
 }
 
 func (vm *LaunchArgumentScreen) GetArgumentValues() []game.LaunchArg {
-	argumentValues := make([]game.LaunchArg, 0)
+	out := make([]game.LaunchArg, 0)
 
-	for _, argument := range vm.GetArgumentTiles() {
-		argumentValues = append(argumentValues, argument.GetLaunchArg())
+	for _, group := range vm.groups {
+		out = append(out, group.GetArgumentValues()...)
 	}
 
-	return argumentValues
+	return out
 }

@@ -167,7 +167,7 @@ func (vm *GameTile) StartSingleplayer() {
 		return
 	}
 
-	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Start singleplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Start · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
 		vm.launchRunner.StartSingleplayer(context.Background(), vm.slug, values)
 	})
 }
@@ -178,7 +178,7 @@ func (vm *GameTile) OpenUserSelectionToJoinMultiplayer() {
 		return
 	}
 
-	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Join multiplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Join · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
 		vm.launchRunner.JoinMultiplayer(context.Background(), vm.slug, values)
 	})
 }
@@ -189,7 +189,7 @@ func (vm *GameTile) OpenArgumentConfigurationToHostMultiplayer() {
 		return
 	}
 
-	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Host multiplayer - %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
+	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Host · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
 		vm.launchRunner.HostMultiplayer(context.Background(), vm.slug, values)
 	})
 }

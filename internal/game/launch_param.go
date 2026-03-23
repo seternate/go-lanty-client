@@ -32,6 +32,7 @@ type LaunchParamInput struct {
 	Enabled           bool
 	ArgumentSeparator string
 	ValueSeparator    string
+	Category          string
 	FloatPrecision    *int64
 	MinInt            *int64
 	MaxInt            *int64
@@ -50,6 +51,7 @@ type LaunchParam struct {
 	enabled           bool
 	argumentSeparator string
 	valueSeparator    string
+	category          string
 	floatPrecision    *int64
 	minInt            *int64
 	maxInt            *int64
@@ -74,6 +76,7 @@ func NewLaunchParam(input LaunchParamInput) (*LaunchParam, error) {
 		maxInt:            input.MaxInt,
 		minFloat:          input.MinFloat,
 		maxFloat:          input.MaxFloat,
+		category:          input.Category,
 	}
 	return param, nil
 }
@@ -108,6 +111,10 @@ func (param *LaunchParam) Required() bool {
 
 func (param *LaunchParam) Enabled() bool {
 	return param.enabled
+}
+
+func (param *LaunchParam) Category() string {
+	return strings.TrimSpace(param.category)
 }
 
 func (param *LaunchParam) MinInt() *int64 {

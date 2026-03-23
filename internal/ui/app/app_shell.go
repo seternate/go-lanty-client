@@ -28,6 +28,7 @@ type AppShell struct {
 
 	contentScreen  *fyne.Container
 	gameScreen     fyne.CanvasObject
+	argumentScreen fyne.CanvasObject
 	userScreen     fyne.CanvasObject
 	settingsScreen fyne.CanvasObject
 }
@@ -82,18 +83,27 @@ func (appShell *AppShell) ShowGameScreen() {
 	appShell.userScreen.Hide()
 	appShell.settingsScreen.Hide()
 	appShell.gameScreen.Show()
+	if appShell.argumentScreen != nil {
+		appShell.argumentScreen.Hide()
+	}
 }
 
 func (appShell *AppShell) ShowUserScreen() {
 	appShell.gameScreen.Hide()
 	appShell.settingsScreen.Hide()
 	appShell.userScreen.Show()
+	if appShell.argumentScreen != nil {
+		appShell.argumentScreen.Hide()
+	}
 }
 
 func (appShell *AppShell) ShowSettingsScreen() {
 	appShell.gameScreen.Hide()
 	appShell.userScreen.Hide()
 	appShell.settingsScreen.Show()
+	if appShell.argumentScreen != nil {
+		appShell.argumentScreen.Hide()
+	}
 }
 
 func (appShell *AppShell) ShowFolderPickerDialog(location string, callback func(path string)) {
@@ -117,11 +127,10 @@ func (appShell *AppShell) ShowFolderPickerDialog(location string, callback func(
 }
 
 func (appShell *AppShell) ShowLaunchArgumentScreen(title string, info string, arguments []game.LaunchParam, onSubmit func(values []game.LaunchArg)) {
-	var launchArgumentScreenView fyne.CanvasObject
-
 	cleanup := func() {
-		if launchArgumentScreenView != nil {
-			appShell.contentScreen.Remove(launchArgumentScreenView)
+		if appShell.argumentScreen != nil {
+			appShell.contentScreen.Remove(appShell.argumentScreen)
+			appShell.argumentScreen = nil
 		}
 		appShell.ShowGameScreen()
 	}
@@ -143,13 +152,13 @@ func (appShell *AppShell) ShowLaunchArgumentScreen(title string, info string, ar
 		return
 	}
 
-	launchArgumentScreenView = gameview.NewLaunchArgumentScreen(launchArgumentScreen)
+	appShell.argumentScreen = gameview.NewLaunchArgumentScreen(launchArgumentScreen)
 
 	appShell.gameScreen.Hide()
 	appShell.userScreen.Hide()
 	appShell.settingsScreen.Hide()
 
-	appShell.contentScreen.Add(launchArgumentScreenView)
+	appShell.contentScreen.Add(appShell.argumentScreen)
 }
 
 func (appShell *AppShell) ShowAndRun() {

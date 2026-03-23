@@ -228,6 +228,7 @@ func (client *gameMockAPIClient) getSingleplayerLaunchSpec(ctx context.Context) 
 			Argument:          "-console",
 			Enabled:           true,
 			ArgumentSeparator: " ",
+			Category:        "Basic",
 		})
 	if err != nil {
 		return game.LaunchSpec{}, err
@@ -244,6 +245,7 @@ func (client *gameMockAPIClient) getSingleplayerLaunchSpec(ctx context.Context) 
 			Enabled:           true,
 			ArgumentSeparator: " ",
 			ValueSeparator:    " ",
+			Category:        "Display",
 		})
 	if err != nil {
 		return game.LaunchSpec{}, err
@@ -272,6 +274,7 @@ func (client *gameMockAPIClient) getJoinLaunchSpec(ctx context.Context) (game.La
 			Enabled:           true,
 			ArgumentSeparator: " ",
 			ValueSeparator:    " ",
+			Category:        "Network",
 		})
 	if err != nil {
 		return game.LaunchSpec{}, err
@@ -314,6 +317,7 @@ func (client *gameMockAPIClient) getJoinLaunchSpec(ctx context.Context) (game.La
 			Enabled:           true,
 			ArgumentSeparator: " ",
 			ValueSeparator:    " ",
+			Category:        "Network",
 		})
 	if err != nil {
 		return game.LaunchSpec{}, err
@@ -350,6 +354,7 @@ func (client *gameMockAPIClient) getHostLaunchSpec(ctx context.Context) (game.La
 			Enabled:           true,
 			Required:          true,
 			ArgumentSeparator: " ",
+			Category:        "Server",
 		})
 	if err != nil {
 		return game.LaunchSpec{}, err
@@ -380,6 +385,7 @@ func (client *gameMockAPIClient) getHostLaunchSpec(ctx context.Context) (game.La
 			Enabled:           true,
 			ArgumentSeparator: " ;",
 			ValueSeparator:    " ",
+			Category:        "Server",
 		})
 	if err != nil {
 		return game.LaunchSpec{}, err
@@ -398,6 +404,7 @@ func (client *gameMockAPIClient) getHostLaunchSpec(ctx context.Context) (game.La
 			ValueSeparator:    "=",
 			MinInt:            &minint,
 			MaxInt:            &maxint,
+			Category:        "Gameplay",
 		})
 	if err != nil {
 		return game.LaunchSpec{}, err
@@ -416,6 +423,7 @@ func (client *gameMockAPIClient) getHostLaunchSpec(ctx context.Context) (game.La
 			MinFloat:          &minfloat,
 			MaxFloat:          &maxfloat,
 			FloatPrecision:    &floatprecision,
+			Category:        "Gameplay",
 		})
 	if err != nil {
 		return game.LaunchSpec{}, err

@@ -13,20 +13,19 @@ type LaunchArgumentScreen struct {
 
 	vm *gameviewmodel.LaunchArgumentScreen
 
-	view           *view.HeaderScrollScreen
-	tilesContainer *fyne.Container
+	view *view.HeaderScrollScreen
 }
 
 func NewLaunchArgumentScreen(vm *gameviewmodel.LaunchArgumentScreen) *LaunchArgumentScreen {
-	argumentContainer := container.NewVBox()
+	groupsContainer := container.NewVBox()
 
 	view := &LaunchArgumentScreen{
 		vm:   vm,
-		view: view.NewHeaderScrollScreen(vm.Header, argumentContainer),
+		view: view.NewHeaderScrollScreen(vm.Header, groupsContainer),
 	}
 
-	for _, argumentTile := range vm.GetArgumentTiles() {
-		argumentContainer.Add(NewLaunchArgumentTile(argumentTile))
+	for _, group := range vm.GetArgumentGroups() {
+		groupsContainer.Add(NewLaunchArgumentGroup(group))
 	}
 
 	view.ExtendBaseWidget(view)

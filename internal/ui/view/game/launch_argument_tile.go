@@ -186,7 +186,7 @@ func (renderer *launchArgumentTileRenderer) Refresh() {
 		renderer.name.Color = color.White
 	} else {
 		renderer.background.FillColor = color.RGBA{32, 32, 32, 255}
-		renderer.name.Color = color.RGBA{180, 180, 180, 255}
+		renderer.name.Color = color.RGBA{128, 128, 128, 255}
 	}
 
 	renderer.validationMessage.Text = renderer.view.vm.GetValidationError()
