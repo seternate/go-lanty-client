@@ -167,13 +167,13 @@ func (vm *GameTile) UpdateFromModel(update GameTileUpdate) error {
 func (vm *GameTile) StartSingleplayer() {
 	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModePlay)
 	if err != nil {
-		vm.logger.Error().Err(err).Msg("get launch spec for singleplayer failed")
+		vm.logger.Error().Err(err).Str("launch_mode", "play").Msg("get launch spec failed")
 		return
 	}
 
 	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Start · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
 		if err := vm.launchRunner.StartSingleplayer(context.Background(), vm.slug, values); err != nil {
-			vm.logger.Error().Err(err).Msg("start singleplayer failed")
+			vm.logger.Error().Err(err).Str("launch_mode", "play").Msg("start game failed")
 		}
 	})
 }
@@ -181,13 +181,13 @@ func (vm *GameTile) StartSingleplayer() {
 func (vm *GameTile) OpenUserSelectionToJoinMultiplayer() {
 	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModeJoin)
 	if err != nil {
-		vm.logger.Error().Err(err).Msg("get launch spec for join multiplayer failed")
+		vm.logger.Error().Err(err).Str("launch_mode", "join").Msg("get launch spec failed")
 		return
 	}
 
 	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Join · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
 		if err := vm.launchRunner.JoinMultiplayer(context.Background(), vm.slug, values); err != nil {
-			vm.logger.Error().Err(err).Msg("join multiplayer failed")
+			vm.logger.Error().Err(err).Str("launch_mode", "join").Msg("start game failed")
 		}
 	})
 }
@@ -195,13 +195,13 @@ func (vm *GameTile) OpenUserSelectionToJoinMultiplayer() {
 func (vm *GameTile) OpenArgumentConfigurationToHostMultiplayer() {
 	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModeHost)
 	if err != nil {
-		vm.logger.Error().Err(err).Msg("get launch spec for host multiplayer failed")
+		vm.logger.Error().Err(err).Str("launch_mode", "host").Msg("get launch spec failed")
 		return
 	}
 
 	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Host · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
 		if err := vm.launchRunner.HostMultiplayer(context.Background(), vm.slug, values); err != nil {
-			vm.logger.Error().Err(err).Msg("host multiplayer failed")
+			vm.logger.Error().Err(err).Str("launch_mode", "host").Msg("start game failed")
 		}
 	})
 }
@@ -210,25 +210,29 @@ func (vm *GameTile) ToggleInstallation() {
 	vm.mu.RLock()
 	isInstalling, err := vm.isInstalling.Get()
 	if err != nil {
+		vm.logger.Error().Err(err).Str("action", "toggle_installation").Msg("read isInstalling binding failed")
+		vm.mu.RUnlock()
 		return
 	}
 	vm.mu.RUnlock()
 
 	if isInstalling {
 		if err := vm.installationRunner.CancelInstallation(context.Background(), vm.slug); err != nil {
-			vm.logger.Error().Err(err).Msg("cancel installation failed")
+			vm.logger.Error().Err(err).Str("action", "cancel_installation").Msg("cancel installation failed")
 		}
 	} else {
 		go func() {
 			if err := vm.installationRunner.StartInstallation(context.Background(), vm.slug); err != nil {
-				vm.logger.Error().Err(err).Msg("start installation failed")
+				vm.logger.Error().Err(err).Str("action", "start_installation").Msg("start installation failed")
 			}
 		}()
 	}
 }
 
 func (vm *GameTile) OpenDirectoryInExplorer() {
-	vm.installationDirectoryOpener.OpenDirectory(context.Background(), vm.slug)
+	if err := vm.installationDirectoryOpener.OpenDirectory(context.Background(), vm.slug); err != nil {
+		vm.logger.Error().Err(err).Str("action", "open_install_dir").Msg("open installation directory in file explorer failed")
+	}
 }
 
 func (vm *GameTile) AddChangeListener(fn func()) {
