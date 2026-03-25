@@ -8,7 +8,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/seternate/go-lanty-client/internal/game"
 	"github.com/seternate/go-lanty-client/internal/network"
 	gameview "github.com/seternate/go-lanty-client/internal/ui/view/game"
@@ -21,6 +21,7 @@ import (
 )
 
 type AppShell struct {
+	logger zerolog.Logger
 	window fyne.Window
 
 	icon    fyne.Resource
@@ -33,10 +34,10 @@ type AppShell struct {
 	settingsScreen fyne.CanvasObject
 }
 
-func NewAppShell(name string, icon fyne.Resource, version string) *AppShell {
+func NewAppShell(logger zerolog.Logger, name string, icon fyne.Resource, version string) *AppShell {
 	fyneApp := app.NewWithID("com.seternate.lanty")
 
-	window := fyneApp.NewWindow(appTitle(name))
+	window := fyneApp.NewWindow(appTitle(name, logger))
 	window.SetPadded(false)
 	window.Resize(fyne.NewSize(1024, 600))
 
@@ -50,6 +51,7 @@ func NewAppShell(name string, icon fyne.Resource, version string) *AppShell {
 	window.SetContent(mainScreen)
 
 	appShell := &AppShell{
+		logger:        logger,
 		window:        window,
 		icon:          icon,
 		version:       version,
@@ -109,6 +111,7 @@ func (appShell *AppShell) ShowSettingsScreen() {
 func (appShell *AppShell) ShowFolderPickerDialog(location string, callback func(path string)) {
 	folderDialog := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
 		if err != nil {
+			appShell.logger.Warn().Err(err).Msg("folder picker callback returned an error")
 			return
 		}
 		if uri != nil {
@@ -118,6 +121,7 @@ func (appShell *AppShell) ShowFolderPickerDialog(location string, callback func(
 
 	listabelLocation, err := storage.ListerForURI(storage.NewFileURI(location))
 	if err != nil {
+		appShell.logger.Error().Err(err).Str("location", location).Msg("failed to list URI for folder picker")
 		return
 	}
 
@@ -149,6 +153,7 @@ func (appShell *AppShell) ShowLaunchArgumentScreen(title string, info string, ar
 
 	launchArgumentScreen, err := gameviewmodel.NewLaunchArgumentScreen(title, info, arguments, wrappedSubmit, onCancel)
 	if err != nil {
+		appShell.logger.Error().Err(err).Str("title", title).Msg("failed to create launch argument screen")
 		return
 	}
 
@@ -169,10 +174,10 @@ func (appShell *AppShell) Quit() {
 	fyne.CurrentApp().Quit()
 }
 
-func appTitle(name string) string {
+func appTitle(name string, logger zerolog.Logger) string {
 	ip, err := network.GetOutboundIP()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get outbound IP for app title")
+		logger.Error().Err(err).Msg("failed to get outbound IP for app title")
 		return name
 	}
 	return fmt.Sprintf("%s - %s", name, ip.String())

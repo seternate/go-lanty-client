@@ -138,7 +138,8 @@ func main() {
 	)
 	scheduler.NewJob(gocron.DurationJob(5*time.Second), gocron.NewTask(userCatalogSyncer.Sync, context.Background()), gocron.WithName("user_catalog_sync"))
 
-	appShell := app.NewAppShell(AppName, resourceIconPng, Version)
+	appShellLogger := appLogger.With().Str("component", "AppShell").Logger()
+	appShell := app.NewAppShell(appShellLogger, AppName, resourceIconPng, Version)
 
 	gamescreenviewmodel := gameviewmodel.NewGameScreen(gameLaunchRunner, gameInstallationRunner, gameInstallationDirectoryOpener, appShell)
 	userscreenviewmodel := userviewmodel.NewUserScreen()
