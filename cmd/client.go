@@ -17,6 +17,7 @@ import (
 	"github.com/seternate/go-lanty-client/internal/game"
 	"github.com/seternate/go-lanty-client/internal/platform/archive"
 	"github.com/seternate/go-lanty-client/internal/platform/filesystem"
+	"github.com/seternate/go-lanty-client/internal/paths"
 	"github.com/seternate/go-lanty-client/internal/platform/process"
 	"github.com/seternate/go-lanty-client/internal/setting"
 	"github.com/seternate/go-lanty-client/internal/ui/app"
@@ -52,12 +53,17 @@ func main() {
 		log.Fatal().Err(err).Msg("error parsing flagset for configuration")
 	}
 
-	log.Logger = logging.Configure(logging.Config{
+	exeDir, exeDirErr := paths.ExecutableDir()
+	if exeDirErr != nil {
+		log.Warn().Err(exeDirErr).Msg("could not resolve executable directory - using current working directory for log file")
+	}
+	appLogger := logging.Configure(logging.Config{
 		LogLevel:           config.LogLevel,
 		FileLoggingEnabled: true,
-		Directory:          ".",
+		Directory:          exeDir,
 		Filename:           "lanty-client.log",
 	})
+	log.Logger = appLogger
 
 	// apiClient, _ := api.New("http://localhost:8080")
 	// client := apiadapter.NewAPIClient(apiClient, decoder.NewImageDecoder())
