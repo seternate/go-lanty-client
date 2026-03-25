@@ -11,6 +11,7 @@ import (
 
 	eventbus "github.com/asaskevich/EventBus"
 	"github.com/go-co-op/gocron/v2"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/seternate/go-lanty-client/internal/backend"
 	"github.com/seternate/go-lanty-client/internal/diskspace"
@@ -94,12 +95,23 @@ func main() {
 	gameLaunchRunner := game.NewLaunchRunner(gameinstallationrepo, usercatalogrepo, processLauncher, gameMockAPIClient)
 	userCatalogSyncer := user.NewCatalogSyncer(bus, userMockAPIClient, usercatalogrepo)
 
-	scheduler, err := gocron.NewScheduler(gocron.WithGlobalJobOptions(gocron.WithStartAt(gocron.WithStartImmediately())))
+	schedLogger := appLogger.With().Str("component", "gocron").Logger()
+	scheduler, err := gocron.NewScheduler(gocron.WithGlobalJobOptions(
+		gocron.WithStartAt(gocron.WithStartImmediately()),
+		gocron.WithEventListeners(
+			gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, err error) {
+				schedLogger.Error().Err(err).Str("job_id", jobID.String()).Str("job_name", jobName).Msg("scheduled job failed")
+			}),
+			gocron.AfterJobRunsWithPanic(func(jobID uuid.UUID, jobName string, recoverData any) {
+				schedLogger.Error().Str("job_id", jobID.String()).Str("job_name", jobName).Interface("recover", recoverData).Msg("scheduled job panicked")
+			}),
+		),
+	))
 	if err != nil {
 		log.Fatal().Err(err).Msg("error creating scheduler")
 	}
-	scheduler.NewJob(gocron.DurationJob(5*time.Second), gocron.NewTask(gameCatalogSyncer.Sync, context.Background()))
-	scheduler.NewJob(gocron.DurationJob(250*time.Millisecond), gocron.NewTask(gameInstallationProgressEmitter.Emit, context.Background()))
+	scheduler.NewJob(gocron.DurationJob(5*time.Second), gocron.NewTask(gameCatalogSyncer.Sync, context.Background()), gocron.WithName("game_catalog_sync"))
+	scheduler.NewJob(gocron.DurationJob(250*time.Millisecond), gocron.NewTask(gameInstallationProgressEmitter.Emit, context.Background()), gocron.WithName("game_installation_progress_emit"))
 	scheduler.NewJob(gocron.DurationJob(3*time.Second), gocron.NewTask(
 		func(ctx context.Context) error {
 			settings, err := settingStore.Get()
@@ -110,6 +122,7 @@ func main() {
 		},
 		context.Background(),
 	),
+		gocron.WithName("game_installation_reconcile"),
 	)
 	scheduler.NewJob(gocron.DurationJob(5*time.Second), gocron.NewTask(
 		func(ctx context.Context) error {
@@ -121,8 +134,9 @@ func main() {
 		},
 		context.Background(),
 	),
+		gocron.WithName("disk_space_detect"),
 	)
-	scheduler.NewJob(gocron.DurationJob(5*time.Second), gocron.NewTask(userCatalogSyncer.Sync, context.Background()))
+	scheduler.NewJob(gocron.DurationJob(5*time.Second), gocron.NewTask(userCatalogSyncer.Sync, context.Background()), gocron.WithName("user_catalog_sync"))
 
 	appShell := app.NewAppShell(AppName, resourceIconPng, Version)
 
