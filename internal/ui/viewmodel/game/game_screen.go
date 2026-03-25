@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2/data/binding"
 	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog"
 	"github.com/seternate/go-lanty-client/internal/game"
 	"github.com/seternate/go-lanty-client/internal/ui/viewmodel"
 )
@@ -18,13 +19,14 @@ type GameScreen struct {
 	installedGames binding.Int
 	freeDiskSpace  binding.String
 
+	logger                      zerolog.Logger
 	launchRunner                *game.LaunchRunner
 	installationRunner          *game.InstallationRunner
 	installationDirectoryOpener *game.InstallationDirectoryOpener
 	launchArgumentConfigurator  LaunchArgumentConfigurator
 }
 
-func NewGameScreen(launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener, launchArgumentConfigurator LaunchArgumentConfigurator) *GameScreen {
+func NewGameScreen(logger zerolog.Logger, launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener, launchArgumentConfigurator LaunchArgumentConfigurator) *GameScreen {
 	availableGames := binding.NewInt()
 	installedGames := binding.NewInt()
 	freeDiskSpace := binding.NewString()
@@ -37,6 +39,7 @@ func NewGameScreen(launchRunner *game.LaunchRunner, installationRunner *game.Ins
 		availableGames:              availableGames,
 		installedGames:              installedGames,
 		freeDiskSpace:               freeDiskSpace,
+		logger:                      logger,
 		launchRunner:                launchRunner,
 		installationRunner:          installationRunner,
 		installationDirectoryOpener: installationDirectoryOpener,
@@ -83,7 +86,7 @@ func (vm *GameScreen) getGameTileBySlug(slug string) *GameTile {
 }
 
 func (vm *GameScreen) AddGameTile(create GameTileCreate) error {
-	gametile, err := NewGameTileFromModel(create, vm.launchRunner, vm.installationRunner, vm.installationDirectoryOpener, vm.launchArgumentConfigurator)
+	gametile, err := NewGameTileFromModel(create, vm.logger, vm.launchRunner, vm.installationRunner, vm.installationDirectoryOpener, vm.launchArgumentConfigurator)
 	if err != nil {
 		return fmt.Errorf("failed to create game tile: %w", err)
 	}

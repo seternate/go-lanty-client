@@ -10,6 +10,7 @@ import (
 
 	"fyne.io/fyne/v2/data/binding"
 	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog"
 	"github.com/seternate/go-lanty-client/internal/game"
 	"github.com/seternate/go-lanty-client/internal/ui/theme"
 )
@@ -58,6 +59,7 @@ type GameTile struct {
 	showInstallationStopIcon binding.Bool
 	isInstalling             binding.Bool
 
+	logger                      zerolog.Logger
 	launchRunner                *game.LaunchRunner
 	launchArgumentConfigurator  LaunchArgumentConfigurator
 	installationRunner          *game.InstallationRunner
@@ -66,9 +68,10 @@ type GameTile struct {
 	mu sync.RWMutex
 }
 
-func NewGameTileFromModel(create GameTileCreate, launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener, launchArgumentConfigurator LaunchArgumentConfigurator) (*GameTile, error) {
+func NewGameTileFromModel(create GameTileCreate, logger zerolog.Logger, launchRunner *game.LaunchRunner, installationRunner *game.InstallationRunner, installationDirectoryOpener *game.InstallationDirectoryOpener, launchArgumentConfigurator LaunchArgumentConfigurator) (*GameTile, error) {
 	vm := &GameTile{
 		slug:                        create.CatalogItem.Slug,
+		logger:                      logger.With().Str("slug", create.CatalogItem.Slug).Logger(),
 		icon:                        binding.NewUntyped(),
 		name:                        binding.NewString(),
 		installedFileSize:           binding.NewString(),
@@ -164,33 +167,42 @@ func (vm *GameTile) UpdateFromModel(update GameTileUpdate) error {
 func (vm *GameTile) StartSingleplayer() {
 	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModePlay)
 	if err != nil {
+		vm.logger.Error().Err(err).Msg("get launch spec for singleplayer failed")
 		return
 	}
 
 	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Start · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
-		vm.launchRunner.StartSingleplayer(context.Background(), vm.slug, values)
+		if err := vm.launchRunner.StartSingleplayer(context.Background(), vm.slug, values); err != nil {
+			vm.logger.Error().Err(err).Msg("start singleplayer failed")
+		}
 	})
 }
 
 func (vm *GameTile) OpenUserSelectionToJoinMultiplayer() {
 	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModeJoin)
 	if err != nil {
+		vm.logger.Error().Err(err).Msg("get launch spec for join multiplayer failed")
 		return
 	}
 
 	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Join · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
-		vm.launchRunner.JoinMultiplayer(context.Background(), vm.slug, values)
+		if err := vm.launchRunner.JoinMultiplayer(context.Background(), vm.slug, values); err != nil {
+			vm.logger.Error().Err(err).Msg("join multiplayer failed")
+		}
 	})
 }
 
 func (vm *GameTile) OpenArgumentConfigurationToHostMultiplayer() {
 	launchSpec, err := vm.launchRunner.GetLaunchSpec(context.Background(), vm.slug, game.LaunchSpecModeHost)
 	if err != nil {
+		vm.logger.Error().Err(err).Msg("get launch spec for host multiplayer failed")
 		return
 	}
 
 	vm.launchArgumentConfigurator.ShowLaunchArgumentScreen(fmt.Sprintf("Host · %s", vm.GetName()), launchSpec.ExecutablePathRelative, launchSpec.Params(), func(values []game.LaunchArg) {
-		vm.launchRunner.HostMultiplayer(context.Background(), vm.slug, values)
+		if err := vm.launchRunner.HostMultiplayer(context.Background(), vm.slug, values); err != nil {
+			vm.logger.Error().Err(err).Msg("host multiplayer failed")
+		}
 	})
 }
 
@@ -203,9 +215,15 @@ func (vm *GameTile) ToggleInstallation() {
 	vm.mu.RUnlock()
 
 	if isInstalling {
-		vm.installationRunner.CancelInstallation(context.Background(), vm.slug)
+		if err := vm.installationRunner.CancelInstallation(context.Background(), vm.slug); err != nil {
+			vm.logger.Error().Err(err).Msg("cancel installation failed")
+		}
 	} else {
-		go vm.installationRunner.StartInstallation(context.Background(), vm.slug)
+		go func() {
+			if err := vm.installationRunner.StartInstallation(context.Background(), vm.slug); err != nil {
+				vm.logger.Error().Err(err).Msg("start installation failed")
+			}
+		}()
 	}
 }
 

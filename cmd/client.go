@@ -141,7 +141,8 @@ func main() {
 	appShellLogger := appLogger.With().Str("component", "AppShell").Logger()
 	appShell := app.NewAppShell(appShellLogger, AppName, resourceIconPng, Version)
 
-	gamescreenviewmodel := gameviewmodel.NewGameScreen(gameLaunchRunner, gameInstallationRunner, gameInstallationDirectoryOpener, appShell)
+	gameScreenLogger := appLogger.With().Str("component", "GameScreen").Logger()
+	gamescreenviewmodel := gameviewmodel.NewGameScreen(gameScreenLogger, gameLaunchRunner, gameInstallationRunner, gameInstallationDirectoryOpener, appShell)
 	userscreenviewmodel := userviewmodel.NewUserScreen()
 	settingsScreenLogger := appLogger.With().Str("component", "SettingsScreen").Logger()
 	settingsscreenviewmodel, err := settingsviewmodel.NewSettingsScreen(settingsScreenLogger, settingStore, appShell)
