@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/rs/zerolog"
 	userviewmodel "github.com/seternate/go-lanty-client/internal/ui/viewmodel/user"
 	"github.com/seternate/go-lanty-client/internal/user"
 )
@@ -14,14 +15,16 @@ type UserCatalogReader interface {
 }
 
 type UserScreenSyncer struct {
+	logger     zerolog.Logger
 	mu         sync.RWMutex
 	userScreen *userviewmodel.UserScreen
 
 	catalogReader UserCatalogReader
 }
 
-func NewUserScreenSyncer(userScreen *userviewmodel.UserScreen, catalogReader UserCatalogReader) *UserScreenSyncer {
+func NewUserScreenSyncer(logger zerolog.Logger, userScreen *userviewmodel.UserScreen, catalogReader UserCatalogReader) *UserScreenSyncer {
 	return &UserScreenSyncer{
+		logger:        logger,
 		userScreen:    userScreen,
 		catalogReader: catalogReader,
 	}
@@ -30,48 +33,71 @@ func NewUserScreenSyncer(userScreen *userviewmodel.UserScreen, catalogReader Use
 func (syncer *UserScreenSyncer) OnCatalogItemAdded(e user.CatalogEvent) {
 	syncer.mu.Lock()
 	defer syncer.mu.Unlock()
+	ctx := context.Background()
+	const handler = "OnCatalogItemAdded"
 
-	catalogItem, err := syncer.catalogReader.GetByIP(context.Background(), e.IP)
+	catalogItem, err := syncer.catalogReader.GetByIP(ctx, e.IP)
 	if err != nil {
+		syncer.logger.Warn().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("catalogReader.GetByIP failed")
 		return
 	}
 
-	syncer.userScreen.AddUserTile(catalogItem)
+	if err := syncer.userScreen.AddUserTile(catalogItem); err != nil {
+		syncer.logger.Error().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("AddUserTile failed")
+	}
 
-	catalogItems, err := syncer.catalogReader.GetAll(context.Background())
+	catalogItems, err := syncer.catalogReader.GetAll(ctx)
 	if err != nil {
+		syncer.logger.Warn().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("catalogReader.GetAll failed")
 		return
 	}
-	syncer.userScreen.UpdateAvailableUsers(len(catalogItems))
+	if err := syncer.userScreen.UpdateAvailableUsers(len(catalogItems)); err != nil {
+		syncer.logger.Error().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("UpdateAvailableUsers failed")
+	}
 }
 
 func (syncer *UserScreenSyncer) OnCatalogItemUpdated(e user.CatalogEvent) {
 	syncer.mu.Lock()
 	defer syncer.mu.Unlock()
+	ctx := context.Background()
+	const handler = "OnCatalogItemUpdated"
 
-	catalogItem, err := syncer.catalogReader.GetByIP(context.Background(), e.IP)
+	catalogItem, err := syncer.catalogReader.GetByIP(ctx, e.IP)
 	if err != nil {
+		syncer.logger.Warn().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("catalogReader.GetByIP failed")
 		return
 	}
 
-	syncer.userScreen.UpdateUserTile(catalogItem)
+	if err := syncer.userScreen.UpdateUserTile(catalogItem); err != nil {
+		syncer.logger.Error().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("UpdateUserTile failed")
+	}
 
-	catalogItems, err := syncer.catalogReader.GetAll(context.Background())
+	catalogItems, err := syncer.catalogReader.GetAll(ctx)
 	if err != nil {
+		syncer.logger.Warn().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("catalogReader.GetAll failed")
 		return
 	}
-	syncer.userScreen.UpdateAvailableUsers(len(catalogItems))
+	if err := syncer.userScreen.UpdateAvailableUsers(len(catalogItems)); err != nil {
+		syncer.logger.Error().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("UpdateAvailableUsers failed")
+	}
 }
 
 func (syncer *UserScreenSyncer) OnCatalogItemRemoved(e user.CatalogEvent) {
 	syncer.mu.Lock()
 	defer syncer.mu.Unlock()
+	ctx := context.Background()
+	const handler = "OnCatalogItemRemoved"
 
-	syncer.userScreen.RemoveUserTile(e.IP)
+	if err := syncer.userScreen.RemoveUserTile(e.IP); err != nil {
+		syncer.logger.Error().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("RemoveUserTile failed")
+	}
 
-	catalogItems, err := syncer.catalogReader.GetAll(context.Background())
+	catalogItems, err := syncer.catalogReader.GetAll(ctx)
 	if err != nil {
+		syncer.logger.Warn().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("catalogReader.GetAll failed")
 		return
 	}
-	syncer.userScreen.UpdateAvailableUsers(len(catalogItems))
+	if err := syncer.userScreen.UpdateAvailableUsers(len(catalogItems)); err != nil {
+		syncer.logger.Error().Err(err).Str("handler", handler).Str("ip", e.IP).Msg("UpdateAvailableUsers failed")
+	}
 }

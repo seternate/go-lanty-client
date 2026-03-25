@@ -149,8 +149,10 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to initialize settings screen")
 	}
 
-	gameScreenSyncer := app.NewGameScreenSyncer(gamescreenviewmodel, gamecatalogrepo, gameMockAPIClient, gameinstallationrepo, gameMockAPIClient, archiveExtractor)
-	userScreenSyncer := app.NewUserScreenSyncer(userscreenviewmodel, usercatalogrepo)
+	gameScreenSyncerLogger := appLogger.With().Str("component", "GameScreenSyncer").Logger()
+	userScreenSyncerLogger := appLogger.With().Str("component", "UserScreenSyncer").Logger()
+	gameScreenSyncer := app.NewGameScreenSyncer(gameScreenSyncerLogger, gamescreenviewmodel, gamecatalogrepo, gameMockAPIClient, gameinstallationrepo, gameMockAPIClient, archiveExtractor)
+	userScreenSyncer := app.NewUserScreenSyncer(userScreenSyncerLogger, userscreenviewmodel, usercatalogrepo)
 
 	bus.Subscribe(game.CatalogAddedEvent, gameScreenSyncer.OnCatalogItemAdded)
 	bus.Subscribe(game.CatalogUpdatedEvent, gameScreenSyncer.OnCatalogItemUpdated)
